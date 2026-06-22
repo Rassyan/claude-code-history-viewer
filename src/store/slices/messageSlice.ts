@@ -6,6 +6,7 @@
 
 import { api } from "@/services/api";
 import { toast } from "sonner";
+import { getEsSettings } from "@/services/esSettings";
 import type {
   ClaudeMessage,
   ClaudeSession,
@@ -470,21 +471,44 @@ export const createMessageSlice: StateCreator<
 
       const provider = session.provider ?? "claude";
 
-      // Window span: initial open loads the newest page; an in-place reload
-      // (filter toggle, watcher refresh) preserves the window the user has
-      // already paged in so their scroll position's content doesn't vanish.
-      const span = isInPlaceReload
-        ? Math.max(MESSAGE_PAGE_SIZE, get().pagination.currentOffset)
-        : MESSAGE_PAGE_SIZE;
+      // Cloud-only sessions (no local file) bypass the disk loader entirely.
+      // Going through the paginated loader first would trigger a
+      // "file not found" error and rely on the catch-block ES fallback,
+      // which (a) is slower than necessary, (b) was sometimes producing
+      // an empty messages list when the catch path's stale-guard tripped
+      // before tryLoadFromEs ran, leaving the UI showing "no messages"
+      // for a session that clearly has content in ES. Detect the
+      // ES-only marker up front and load directly from ES.
+      let windowMessages: ClaudeMessage[];
+      let page: Omit<MessagePage, "messages">;
+      if (session.storage_type === "elasticsearch") {
+        const esMessages = await tryLoadFromEs(session);
+        if (!esMessages || esMessages.length === 0) {
+          throw new Error("No messages found for this cloud session");
+        }
+        windowMessages = esMessages;
+        page = {
+          total_count: esMessages.length,
+          has_more: false,
+          next_offset: esMessages.length,
+        };
+      } else {
+        // Window span: initial open loads the newest page; an in-place reload
+        // (filter toggle, watcher refresh) preserves the window the user has
+        // already paged in so their scroll position's content doesn't vanish.
+        const span = isInPlaceReload
+          ? Math.max(MESSAGE_PAGE_SIZE, get().pagination.currentOffset)
+          : MESSAGE_PAGE_SIZE;
 
-      // Sidechain filtering happens server-side at classification stage —
-      // subagent 세션은 모든 메시지가 isSidechain=true이므로 필터 우회.
-      const { messages: windowMessages, page } = await fetchWindow(
-        provider,
-        sessionPath,
-        span,
-        shouldExcludeSidechain(shouldTreatAsSubagent)
-      );
+        // Sidechain filtering happens server-side at classification stage —
+        // subagent 세션은 모든 메시지가 isSidechain=true이므로 필터 우회.
+        ({ messages: windowMessages, page } = await fetchWindow(
+          provider,
+          sessionPath,
+          span,
+          shouldExcludeSidechain(shouldTreatAsSubagent)
+        ));
+      }
 
       // Stale response guard: 다른 세션으로 이동했거나(경로), 같은 세션의 더
       // 새로운 reload가 시작되었으면(epoch) 중단.
@@ -538,6 +562,24 @@ export const createMessageSlice: StateCreator<
         epoch !== sessionLoadEpoch ||
         get().selectedSession?.file_path !== session.file_path
       ) {
+        return;
+      }
+
+      // ES fallback: if local load fails, try loading from Elasticsearch
+      const esMessages = await tryLoadFromEs(session);
+      if (esMessages && esMessages.length > 0) {
+        if (get().selectedSession?.file_path !== session.file_path) return;
+        set({
+          messages: esMessages,
+          pagination: {
+            currentOffset: esMessages.length,
+            pageSize: esMessages.length,
+            totalCount: esMessages.length,
+            hasMore: false,
+            isLoadingMore: false,
+          },
+          isLoadingMessages: false,
+        });
         return;
       }
 
@@ -1104,3 +1146,36 @@ export const createMessageSlice: StateCreator<
   },
   };
 };
+
+// ============================================================================
+// ES fallback helper
+// ============================================================================
+
+/**
+ * Try loading session messages from Elasticsearch when local file is missing.
+ * Returns messages array if successful, null otherwise.
+ */
+async function tryLoadFromEs(session: ClaudeSession): Promise<ClaudeMessage[] | null> {
+  try {
+    const settings = await getEsSettings();
+    if (!settings?.endpoint) return null;
+
+    // Extract the actual session UUID from file_path
+    const sessionId = session.actual_session_id ||
+      session.file_path.split("/").pop()?.replace(".jsonl", "") ||
+      "";
+
+    if (!sessionId) return null;
+
+    const messages = await api<ClaudeMessage[]>("es_load_session_messages", {
+      endpoint: settings.endpoint,
+      username: settings.username,
+      password: settings.password,
+      sessionId,
+    });
+
+    return messages && messages.length > 0 ? messages : null;
+  } catch {
+    return null;
+  }
+}

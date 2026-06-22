@@ -498,9 +498,10 @@ function App() {
         }
       } catch (error) {
         console.error(`Failed to auto-load ${activeView} view:`, error);
+        toast.error(t("session.selectError"));
       }
     },
-    [clearProjectSelection, selectProject, analyticsActions, setDateFilter, setIsViewingGlobalStats]
+    [clearProjectSelection, selectProject, analyticsActions, setDateFilter, setIsViewingGlobalStats, t]
   );
 
   const handleSessionHover = useCallback(

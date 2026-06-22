@@ -257,5 +257,7 @@
   "sessionPicker.cancelled": "啟動時的工作階段提示已取消",
   "session.pane.title": "會話",
   "project.temporaryGroup": "暫存位置",
-  "project.switchProvider": "開啟 {{provider}} 會話（{{count}}）"
+  "project.switchProvider": "開啟 {{provider}} 會話（{{count}}）",
+  "session.item.cloudSession": "雲端工作階段",
+  "session.item.cloudSessionDescription": "本機檔案已被清理，已從 Elasticsearch 載入。"
 }

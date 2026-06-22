@@ -130,6 +130,7 @@ export const SessionItem: React.FC<SessionItemProps> = ({
         )}
         <SessionHeader
           isArchivedCodexSession={editing.isArchivedCodexSession}
+          isCloudSession={session.storage_type === "elasticsearch"}
           isSelected={highlighted}
         />
 

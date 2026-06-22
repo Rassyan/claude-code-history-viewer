@@ -204,6 +204,8 @@ impl MessageBuilder {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         }
     }
 

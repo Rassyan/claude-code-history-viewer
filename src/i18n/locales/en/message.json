@@ -99,5 +99,14 @@
   "filter.content.parallelTasks": "Parallel Tasks",
   "filter.reset": "Reset Filters",
   "filter.active": "Filters active",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "messageViewer.cloudSessionBanner": "This session is loaded from Elasticsearch. The local file has been cleaned up.",
+  "messageViewer.cloudSessionEsNotConfigured": "Elasticsearch is not configured",
+  "messageViewer.cloudSessionMissingId": "Missing session id",
+  "messageViewer.cloudSessionRestoredToast": "Session restored",
+  "messageViewer.cloudSessionRestoreFailed": "Restore failed: {{error}}",
+  "messageViewer.cloudSessionRestoreTooltip": "Restore session to local file",
+  "messageViewer.cloudSessionRestoring": "Restoring…",
+  "messageViewer.cloudSessionRestored": "Restored",
+  "messageViewer.cloudSessionRestore": "Restore to local"
 }

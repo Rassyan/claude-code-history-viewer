@@ -48,6 +48,8 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         assert_json_snapshot!("user_message", message);
@@ -98,6 +100,8 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         assert_json_snapshot!("assistant_message", message);
@@ -166,6 +170,8 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: Some("forgecode".to_string()),
+            search_preview_html: None,
+            search_score: None,
         };
 
         assert_json_snapshot!("forgecode_message", message);
@@ -285,6 +291,8 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         assert_json_snapshot!("message_with_tool_use", message);

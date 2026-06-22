@@ -5239,6 +5239,8 @@ impl TryFrom<RawLogEntry> for ClaudeMessage {
             compact_metadata: log_entry.compact_metadata,
             microcompact_metadata: log_entry.microcompact_metadata,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         })
     }
 }
@@ -5820,6 +5822,8 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: provider.map(std::string::ToString::to_string),
+            search_preview_html: None,
+            search_score: None,
         }
     }
 
@@ -6183,6 +6187,8 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         let usage = extract_token_usage(&msg);
@@ -6234,6 +6240,8 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         let usage = extract_token_usage(&msg);
@@ -6283,6 +6291,8 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         let usage = extract_token_usage(&msg);
@@ -6328,6 +6338,8 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         let usage = extract_token_usage(&msg);
@@ -6371,6 +6383,8 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         let usage = extract_token_usage(&msg);

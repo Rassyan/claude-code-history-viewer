@@ -257,5 +257,7 @@
   "sessionPicker.cancelled": "Startup session hint cancelled",
   "session.pane.title": "Sessions",
   "project.temporaryGroup": "Temporary locations",
-  "project.switchProvider": "Open {{provider}} sessions ({{count}})"
+  "project.switchProvider": "Open {{provider}} sessions ({{count}})",
+  "session.item.cloudSession": "Cloud session",
+  "session.item.cloudSessionDescription": "Local file has been cleaned up. Loaded from Elasticsearch."
 }

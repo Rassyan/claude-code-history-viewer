@@ -13,6 +13,7 @@ import {
     Bot,
     MessageSquare,
     Lightbulb,
+    Cloud,
 } from "lucide-react";
 import { Dialog, DialogContent, Input } from "@/components/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,10 +30,13 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getPathLeaf, getProjectDisplayName } from "@/utils/pathUtils";
 import { getLocale } from "@/utils/time";
+import { getEsSettings } from "@/services/esSettings";
 
 type GlobalSearchResult = ClaudeMessage;
 
 type MessageTypeFilter = "all" | "user" | "assistant";
+type SearchMode = "smart" | "phrase" | "fuzzy";
+type SortBy = "relevance" | "time";
 
 interface GlobalSearchModalProps {
     isOpen: boolean;
@@ -122,6 +126,13 @@ export const GlobalSearchModal = ({
     // Bumped when the modal closes or results change; abandons a title sweep.
     const titleSweepTokenRef = useRef(0);
     const [messageTypeFilter, setMessageTypeFilter] = useState<MessageTypeFilter>("all");
+    const [searchMode, setSearchMode] = useState<SearchMode>("smart");
+    const [sortBy, setSortBy] = useState<SortBy>("relevance");
+    const [resultsFromEs, setResultsFromEs] = useState(false);
+    // Whether ES is configured. ES-only UI affordances (mode toggle, sort
+    // toggle, score chip) are hidden when not enabled to keep the search
+    // experience identical to vanilla CCHV for users who haven't opted in.
+    const [esEnabled, setEsEnabled] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const resultsContainerRef = useRef<HTMLDivElement>(null);
     const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -278,25 +289,58 @@ export const GlobalSearchModal = ({
                 if (messageTypeFilter !== "all") {
                     filters.messageType = messageTypeFilter;
                 }
-                const wslExcludedDistros = userMetadata?.settings?.wsl?.excludedDistros ?? [];
-                const useAllProvidersSearch = hasNonClaudeProviders || hasCustomPaths || wslEnabled;
-                const searchResults = await api<GlobalSearchResult[]>(
-                    useAllProvidersSearch ? "search_all_providers" : "search_messages",
-                    useAllProvidersSearch
-                        ? {
-                              claudePath: nativeClaudePath,
-                              query: trimmedQuery,
-                              activeProviders,
-                              filters,
-                              limit: MAX_RESULTS,
-                              customClaudePaths: hasCustomPaths ? customClaudePaths : undefined,
-                              wslEnabled,
-                              wslProviders,
-                              wslExcludedDistros,
-                          }
-                        : { claudePath: nativeClaudePath, query: trimmedQuery, filters, limit: MAX_RESULTS },
-                );
+                // ES-only filters (silently ignored by local backends)
+                filters.searchMode = searchMode;
+                filters.sortBy = sortBy;
+
+                // Try ES search first (if configured)
+                let searchResults: GlobalSearchResult[] | null = null;
+                let usedEs = false;
+                try {
+                    const esSettings = await getEsSettings();
+                    if (esSettings?.endpoint) {
+                        searchResults = await api<GlobalSearchResult[]>(
+                            "es_search_messages",
+                            {
+                                endpoint: esSettings.endpoint,
+                                username: esSettings.username,
+                                password: esSettings.password,
+                                query: trimmedQuery,
+                                filters,
+                                limit: MAX_RESULTS,
+                            },
+                        );
+                        usedEs = true;
+                    }
+                } catch {
+                    // ES unavailable, fall through to local search
+                    searchResults = null;
+                    usedEs = false;
+                }
+
+                // Fallback to local search if ES didn't return results
+                if (searchResults === null) {
+                    const wslExcludedDistros = userMetadata?.settings?.wsl?.excludedDistros ?? [];
+                    const useAllProvidersSearch = hasNonClaudeProviders || hasCustomPaths || wslEnabled;
+                    searchResults = await api<GlobalSearchResult[]>(
+                        useAllProvidersSearch ? "search_all_providers" : "search_messages",
+                        useAllProvidersSearch
+                            ? {
+                                  claudePath: nativeClaudePath,
+                                  query: trimmedQuery,
+                                  activeProviders,
+                                  filters,
+                                  limit: MAX_RESULTS,
+                                  customClaudePaths: hasCustomPaths ? customClaudePaths : undefined,
+                                  wslEnabled,
+                                  wslProviders,
+                                  wslExcludedDistros,
+                              }
+                            : { claudePath: nativeClaudePath, query: trimmedQuery, filters, limit: MAX_RESULTS },
+                    );
+                }
                 setResults(searchResults);
+                setResultsFromEs(usedEs);
                 setSelectedIndex(0);
             } catch (error) {
                 console.error("Global search failed:", error);
@@ -306,7 +350,7 @@ export const GlobalSearchModal = ({
                 setIsSearching(false);
             }
         },
-        [claudePath, activeProviders, selectedProjectPath, messageTypeFilter, userMetadata, t],
+        [claudePath, activeProviders, selectedProjectPath, messageTypeFilter, searchMode, sortBy, userMetadata, t],
     );
 
     // Handle input change with debounce
@@ -423,7 +467,43 @@ export const GlobalSearchModal = ({
                     }
                 }
 
-                // Session not found in any project
+                // Session not found in any local project — try ES cloud fallback
+                const esSettings = await getEsSettings();
+                if (esSettings?.endpoint && result.sessionId) {
+                    // For subagent paths (.../subagents/agent-xxx.jsonl), the session
+                    // UUID lives in the parent directory, not the filename.
+                    // Standard paths use the filename minus .jsonl.
+                    const extractActualSessionId = (path: string): string => {
+                        const parts = path.split("/");
+                        const fileName = parts.pop() ?? path;
+                        if (parts[parts.length - 1] === "subagents" && parts.length >= 2) {
+                            // Use the parent of "subagents" as the session UUID
+                            return parts[parts.length - 2] ?? fileName.replace(/\.jsonl$/, "");
+                        }
+                        return fileName.replace(/\.jsonl$/, "");
+                    };
+
+                    const cloudSession: ClaudeSession = {
+                        session_id: result.sessionId,
+                        actual_session_id: extractActualSessionId(result.sessionId),
+                        file_path: result.sessionId,
+                        project_name: result.projectName || "Cloud",
+                        message_count: 0,
+                        first_message_time: result.timestamp || "",
+                        last_message_time: result.timestamp || "",
+                        last_modified: result.timestamp || "",
+                        has_tool_use: false,
+                        has_errors: false,
+                        summary: undefined,
+                        provider: result.provider as ClaudeSession["provider"],
+                        storage_type: "elasticsearch",
+                    };
+                    if (result.uuid) navigateToMessage(result.uuid);
+                    await selectSession(cloudSession);
+                    onClose();
+                    return;
+                }
+
                 clearTargetMessage();
                 toast.error(t("globalSearch.sessionNotFound"));
                 onClose();
@@ -497,6 +577,19 @@ export const GlobalSearchModal = ({
         }
     }, [isOpen]);
 
+    // Detect whether ES is configured so we can hide ES-only UI when off.
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+        (async () => {
+            const settings = await getEsSettings();
+            if (!cancelled) setEsEnabled(!!settings?.endpoint);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen]);
+
     // Re-search when filters change. `query` is intentionally omitted —
     // keystroke-driven searches go through handleInputChange's debounce.
     // This effect only fires when performSearch identity changes (i.e., filter deps).
@@ -547,6 +640,32 @@ export const GlobalSearchModal = ({
         }
 
         return fullText.slice(0, 150) + (fullText.length > 150 ? "..." : "");
+    };
+
+    // Render ES-provided highlight HTML safely.
+    //
+    // The backend sets `searchPreviewHtml` from ES highlight fragments containing
+    // *only* `<mark>...</mark>` tags (no user-controlled HTML — ES escapes the
+    // source text, then re-injects the configured `pre_tags`/`post_tags`).
+    // We still escape any other characters as a defense in depth and only allow
+    // `<mark>` / `</mark>` to be rendered as actual tags.
+    const renderEsHighlight = (html: string): React.ReactNode => {
+        // Split on `<mark>...</mark>` while preserving the matched parts
+        const parts = html.split(/(<mark>.*?<\/mark>)/g);
+        return parts.map((part, idx) => {
+            const m = /^<mark>(.*?)<\/mark>$/.exec(part);
+            if (m) {
+                return (
+                    <mark
+                        key={idx}
+                        className="bg-yellow-300 dark:bg-yellow-500/40 text-foreground rounded-sm px-0.5"
+                    >
+                        {m[1]}
+                    </mark>
+                );
+            }
+            return <span key={idx}>{part}</span>;
+        });
     };
 
     // Format timestamp
@@ -636,7 +755,7 @@ export const GlobalSearchModal = ({
                 </div>
 
                 {/* Filters Bar */}
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20">
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20 flex-wrap">
                     {/* Message Type Filter */}
                     <div className="flex items-center gap-1">
                         {(["all", "user", "assistant"] as const).map((type) => (
@@ -658,6 +777,60 @@ export const GlobalSearchModal = ({
                             </button>
                         ))}
                     </div>
+
+                    {/* ES-only controls — hidden when ES is not configured to keep
+                        the search UI identical to vanilla CCHV for non-users. */}
+                    {esEnabled && (
+                        <>
+                            <div className="w-px h-4 bg-border" />
+
+                            {/* Search Mode */}
+                            <div className="flex items-center gap-1">
+                                {([
+                                    { v: "smart", label: t("globalSearch.mode.smart", { defaultValue: "Smart" }), title: t("globalSearch.mode.smartHint", { defaultValue: "Tokenized OR matching, ranks by relevance" }) },
+                                    { v: "phrase", label: t("globalSearch.mode.phrase", { defaultValue: "Phrase" }), title: t("globalSearch.mode.phraseHint", { defaultValue: "Match exact phrase (after tokenization)" }) },
+                                    { v: "fuzzy", label: t("globalSearch.mode.fuzzy", { defaultValue: "Fuzzy" }), title: t("globalSearch.mode.fuzzyHint", { defaultValue: "Tolerate typos (more noise)" }) },
+                                ] as const).map(({ v, label, title }) => (
+                                    <button
+                                        key={v}
+                                        onClick={() => setSearchMode(v)}
+                                        title={title}
+                                        className={cn(
+                                            "px-2 py-1 text-xs rounded-md transition-colors",
+                                            searchMode === v
+                                                ? "bg-foreground/10 text-foreground font-medium"
+                                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                        )}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="w-px h-4 bg-border" />
+
+                            {/* Sort by */}
+                            <div className="flex items-center gap-1">
+                                {([
+                                    { v: "relevance", label: t("globalSearch.sort.relevance", { defaultValue: "Relevance" }) },
+                                    { v: "time", label: t("globalSearch.sort.time", { defaultValue: "Newest" }) },
+                                ] as const).map(({ v, label }) => (
+                                    <button
+                                        key={v}
+                                        onClick={() => setSortBy(v)}
+                                        className={cn(
+                                            "px-2 py-1 text-xs rounded-md transition-colors",
+                                            sortBy === v
+                                                ? "bg-foreground/10 text-foreground font-medium"
+                                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                        )}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
 
                     {/* Divider */}
                     {projects.length > 1 && (
@@ -747,6 +920,13 @@ export const GlobalSearchModal = ({
 
                     {results.length > 0 && (
                         <div className="py-2">
+                            {/* ES data source indicator */}
+                            {resultsFromEs && (
+                                <div className="px-4 py-1 text-xs text-sky-600 dark:text-sky-400 flex items-center gap-1.5 border-b border-sky-500/20 bg-sky-500/5">
+                                    <Cloud className="w-3 h-3" />
+                                    <span>{t("globalSearch.resultsFromEs", "Results from Elasticsearch")}</span>
+                                </div>
+                            )}
                             {Array.from(groupedResults.entries()).map(
                                 ([groupKey, group]) => (
                                     <div key={groupKey}>
@@ -812,6 +992,14 @@ export const GlobalSearchModal = ({
                                                                 <span className="text-xs text-muted-foreground">
                                                                     {formatTimestamp(result.timestamp)}
                                                                 </span>
+                                                                {typeof result.searchScore === "number" && (
+                                                                    <span
+                                                                        className="text-2xs text-muted-foreground/60 font-mono"
+                                                                        title={t("globalSearch.relevanceScoreHint", { defaultValue: "Elasticsearch BM25 score (higher = more relevant)" })}
+                                                                    >
+                                                                        {result.searchScore.toFixed(1)}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             {(() => {
                                                                 const sessionName = getSessionName(result);
@@ -823,7 +1011,9 @@ export const GlobalSearchModal = ({
                                                                 ) : null;
                                                             })()}
                                                             <p className="text-sm text-foreground line-clamp-2">
-                                                                {highlightText(getPreviewText(result))}
+                                                                {result.searchPreviewHtml
+                                                                    ? renderEsHighlight(result.searchPreviewHtml)
+                                                                    : highlightText(getPreviewText(result))}
                                                             </p>
                                                         </div>
                                                     </div>

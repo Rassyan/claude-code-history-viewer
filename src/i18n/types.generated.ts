@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-09T12:20:43.282Z
- * 총 키 개수: 1962
+ * 생성 시간: 2026-09-28T07:56:33.688Z
+ * 총 키 개수: 2013
  * Namespace 수: 11
  */
 
@@ -443,7 +443,7 @@ export type AnalyticsKeys =
   | 'analytics.weeklyActivity';
 
 /**
- * session namespace의 번역 키 (259개)
+ * session namespace의 번역 키 (261개)
  * 파일: locales/{lang}/session.json
  */
 export type SessionKeys =
@@ -615,6 +615,8 @@ export type SessionKeys =
   | 'session.interaction.verifiedCommit'
   | 'session.item.archived'
   | 'session.item.archivedDescription'
+  | 'session.item.cloudSession'
+  | 'session.item.cloudSessionDescription'
   | 'session.item.containsErrors'
   | 'session.item.containsToolUse'
   | 'session.item.entrypoint.cli'
@@ -708,7 +710,7 @@ export type SessionKeys =
   | 'sessionPicker.title';
 
 /**
- * settings namespace의 번역 키 (537개)
+ * settings namespace의 번역 키 (577개)
  * 파일: locales/{lang}/settings.json
  */
 export type SettingsKeys =
@@ -747,6 +749,46 @@ export type SettingsKeys =
   | 'settings.customDirectories.pathPlaceholder'
   | 'settings.customDirectories.remove'
   | 'settings.customDirectories.removeConfirm'
+  | 'settings.es.cancelSyncFailed'
+  | 'settings.es.connected'
+  | 'settings.es.deviceId'
+  | 'settings.es.disconnected'
+  | 'settings.es.duration'
+  | 'settings.es.endpoint'
+  | 'settings.es.errorCount'
+  | 'settings.es.filesProcessed'
+  | 'settings.es.filesTracked'
+  | 'settings.es.fullSync'
+  | 'settings.es.lastSync'
+  | 'settings.es.loadStats'
+  | 'settings.es.loadingStats'
+  | 'settings.es.messages'
+  | 'settings.es.messagesIndexed'
+  | 'settings.es.password'
+  | 'settings.es.progressCounts'
+  | 'settings.es.saveSettingsFailed'
+  | 'settings.es.scanningFiles'
+  | 'settings.es.sessions'
+  | 'settings.es.startingSync'
+  | 'settings.es.statistics'
+  | 'settings.es.stats.cost'
+  | 'settings.es.stats.messages'
+  | 'settings.es.stats.models'
+  | 'settings.es.stats.na'
+  | 'settings.es.stats.providers'
+  | 'settings.es.stats.tokensIn'
+  | 'settings.es.stats.tokensOut'
+  | 'settings.es.stats.topProjects'
+  | 'settings.es.statsLoadFailed'
+  | 'settings.es.status'
+  | 'settings.es.syncErrorToast'
+  | 'settings.es.syncFailedToast'
+  | 'settings.es.syncInProgress'
+  | 'settings.es.syncResult'
+  | 'settings.es.syncing'
+  | 'settings.es.testConnection'
+  | 'settings.es.title'
+  | 'settings.es.username'
   | 'settings.wsl.defaultBadge'
   | 'settings.wsl.description'
   | 'settings.wsl.detectError'
@@ -1370,7 +1412,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (101개)
+ * message namespace의 번역 키 (110개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1413,6 +1455,15 @@ export type MessageKeys =
   | 'messageViewer.branch'
   | 'messageViewer.checkConsole'
   | 'messageViewer.claude'
+  | 'messageViewer.cloudSessionBanner'
+  | 'messageViewer.cloudSessionEsNotConfigured'
+  | 'messageViewer.cloudSessionMissingId'
+  | 'messageViewer.cloudSessionRestore'
+  | 'messageViewer.cloudSessionRestoreFailed'
+  | 'messageViewer.cloudSessionRestoreTooltip'
+  | 'messageViewer.cloudSessionRestored'
+  | 'messageViewer.cloudSessionRestoredToast'
+  | 'messageViewer.cloudSessionRestoring'
   | 'messageViewer.codex'
   | 'messageViewer.debugInfo.file'
   | 'messageViewer.debugInfo.firstMessage'
@@ -2795,6 +2846,15 @@ export type TranslationKey =
   | 'messageViewer.branch'
   | 'messageViewer.checkConsole'
   | 'messageViewer.claude'
+  | 'messageViewer.cloudSessionBanner'
+  | 'messageViewer.cloudSessionEsNotConfigured'
+  | 'messageViewer.cloudSessionMissingId'
+  | 'messageViewer.cloudSessionRestore'
+  | 'messageViewer.cloudSessionRestoreFailed'
+  | 'messageViewer.cloudSessionRestoreTooltip'
+  | 'messageViewer.cloudSessionRestored'
+  | 'messageViewer.cloudSessionRestoredToast'
+  | 'messageViewer.cloudSessionRestoring'
   | 'messageViewer.codex'
   | 'messageViewer.debugInfo.file'
   | 'messageViewer.debugInfo.firstMessage'
@@ -3171,6 +3231,8 @@ export type TranslationKey =
   | 'session.interaction.verifiedCommit'
   | 'session.item.archived'
   | 'session.item.archivedDescription'
+  | 'session.item.cloudSession'
+  | 'session.item.cloudSessionDescription'
   | 'session.item.containsErrors'
   | 'session.item.containsToolUse'
   | 'session.item.entrypoint.cli'
@@ -3279,6 +3341,46 @@ export type TranslationKey =
   | 'settings.customDirectories.pathPlaceholder'
   | 'settings.customDirectories.remove'
   | 'settings.customDirectories.removeConfirm'
+  | 'settings.es.cancelSyncFailed'
+  | 'settings.es.connected'
+  | 'settings.es.deviceId'
+  | 'settings.es.disconnected'
+  | 'settings.es.duration'
+  | 'settings.es.endpoint'
+  | 'settings.es.errorCount'
+  | 'settings.es.filesProcessed'
+  | 'settings.es.filesTracked'
+  | 'settings.es.fullSync'
+  | 'settings.es.lastSync'
+  | 'settings.es.loadStats'
+  | 'settings.es.loadingStats'
+  | 'settings.es.messages'
+  | 'settings.es.messagesIndexed'
+  | 'settings.es.password'
+  | 'settings.es.progressCounts'
+  | 'settings.es.saveSettingsFailed'
+  | 'settings.es.scanningFiles'
+  | 'settings.es.sessions'
+  | 'settings.es.startingSync'
+  | 'settings.es.statistics'
+  | 'settings.es.stats.cost'
+  | 'settings.es.stats.messages'
+  | 'settings.es.stats.models'
+  | 'settings.es.stats.na'
+  | 'settings.es.stats.providers'
+  | 'settings.es.stats.tokensIn'
+  | 'settings.es.stats.tokensOut'
+  | 'settings.es.stats.topProjects'
+  | 'settings.es.statsLoadFailed'
+  | 'settings.es.status'
+  | 'settings.es.syncErrorToast'
+  | 'settings.es.syncFailedToast'
+  | 'settings.es.syncInProgress'
+  | 'settings.es.syncResult'
+  | 'settings.es.syncing'
+  | 'settings.es.testConnection'
+  | 'settings.es.title'
+  | 'settings.es.username'
   | 'settings.wsl.defaultBadge'
   | 'settings.wsl.description'
   | 'settings.wsl.detectError'

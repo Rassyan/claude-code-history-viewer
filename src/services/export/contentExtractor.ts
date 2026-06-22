@@ -36,7 +36,7 @@ function truncate(text: string, max: number): string {
  * ContentItem union is wide — we use runtime checks to access nested data.
  */
 function nested(item: Record<string, unknown>, key: string): unknown {
-  return (item.content as Record<string, unknown> | undefined)?.[key];
+  return (item.content as unknown as Record<string, unknown> | undefined)?.[key];
 }
 
 export function extractBlocks(content: string | ContentItem[] | Record<string, unknown> | undefined): ExtractedBlock[] {
@@ -71,7 +71,7 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
       case "tool_use":
         if ("name" in raw && typeof raw.name === "string") {
           const input = typeof raw.input === "object" && raw.input != null
-            ? summarizeInput(raw.input as Record<string, unknown>)
+            ? summarizeInput(raw.input as unknown as Record<string, unknown>)
             : "";
           const detail = input ? `${raw.name}(${input})` : raw.name;
           blocks.push({ kind: "tool", text: detail });
@@ -95,7 +95,7 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
       case "server_tool_use":
         if (typeof raw.name === "string") {
           const input = typeof raw.input === "object" && raw.input != null
-            ? summarizeInput(raw.input as Record<string, unknown>)
+            ? summarizeInput(raw.input as unknown as Record<string, unknown>)
             : "";
           const detail = input ? `${raw.name}(${input})` : raw.name;
           blocks.push({ kind: "tool", text: `[Server: ${detail}]` });
@@ -122,7 +122,7 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
       // WebFetchToolResultContent: { content: WebFetchResult | WebFetchError }
       // WebFetchResult: { type: "web_fetch_result", url, content? }
       case "web_fetch_tool_result": {
-        const c = raw.content as Record<string, unknown> | undefined;
+        const c = raw.content as unknown as Record<string, unknown> | undefined;
         const url = typeof c?.url === "string" ? c.url : undefined;
         blocks.push({ kind: "search", text: url ? `[Web fetch: ${url}]` : "[Web fetch result]" });
         break;
@@ -142,7 +142,7 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
 
       // TextEditorCodeExecutionToolResultContent: { content: { operation?, path?, success? } }
       case "text_editor_code_execution_tool_result": {
-        const c = raw.content as Record<string, unknown> | undefined;
+        const c = raw.content as unknown as Record<string, unknown> | undefined;
         const op = typeof c?.operation === "string" ? c.operation : "unknown";
         const path = typeof c?.path === "string" ? c.path : "";
         blocks.push({ kind: "code", text: path ? `[File ${op}: ${path}]` : `[File ${op}]` });
@@ -179,7 +179,7 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
         const tool = typeof raw.tool_name === "string" ? raw.tool_name : "";
         const name = server && tool ? `${server}.${tool}` : tool || server || "unknown";
         const input = typeof raw.input === "object" && raw.input != null
-          ? summarizeInput(raw.input as Record<string, unknown>)
+          ? summarizeInput(raw.input as unknown as Record<string, unknown>)
           : "";
         const detail = input ? `${name}(${input})` : name;
         blocks.push({ kind: "tool", text: `[MCP: ${detail}]` });
@@ -193,8 +193,8 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
         const prefix = isError ? "[Error] " : "";
         if (typeof c === "string") {
           blocks.push({ kind: "result", text: `${prefix}${truncate(c, 500)}` });
-        } else if (typeof c === "object" && c != null && "text" in (c as Record<string, unknown>)) {
-          const text = (c as Record<string, unknown>).text;
+        } else if (typeof c === "object" && c != null && "text" in (c as unknown as Record<string, unknown>)) {
+          const text = (c as unknown as Record<string, unknown>).text;
           if (typeof text === "string") {
             blocks.push({ kind: "result", text: `${prefix}${truncate(text, 500)}` });
           } else {

@@ -29,6 +29,7 @@ import { SettingsSidebar } from "./sidebar/SettingsSidebar";
 import { SettingsEditorPane } from "./editor/SettingsEditorPane";
 import { SettingsDiagnosticsPanel } from "./dialogs/SettingsDiagnosticsPanel";
 import { CustomDirectoriesSection } from "./sections/CustomDirectoriesSection";
+import { ElasticsearchSection } from "./sections/ElasticsearchSection";
 import { WslSection } from "./sections/WslSection";
 
 export type ActivePanel = "editor" | "diagnostics";
@@ -115,6 +116,7 @@ export const UnifiedSettingsManager: React.FC<UnifiedSettingsManagerProps> = ({
   const [activePanel, setActivePanel] = React.useState<ActivePanel>("editor");
   const [isCustomDirsExpanded, setIsCustomDirsExpanded] = React.useState(false);
   const [isWslExpanded, setIsWslExpanded] = React.useState(false);
+  const [isEsExpanded, setIsEsExpanded] = React.useState(false);
 
   // Pending changes state (shared across components for dirty tracking)
   const [pendingSettings, setPendingSettings] = React.useState<ClaudeCodeSettings | null>(null);
@@ -327,6 +329,14 @@ export const UnifiedSettingsManager: React.FC<UnifiedSettingsManagerProps> = ({
                 isExpanded={isWslExpanded}
                 onToggle={(open) => setIsWslExpanded(open)}
                 readOnly={serverReadOnly}
+              />
+            </Card>
+
+            {/* Elasticsearch Sync Settings */}
+            <Card className="shrink-0">
+              <ElasticsearchSection
+                isExpanded={isEsExpanded}
+                onToggle={(open) => setIsEsExpanded(open)}
               />
             </Card>
 
