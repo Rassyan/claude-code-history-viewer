@@ -215,5 +215,7 @@
   "sessionPicker.title": "选择会话",
   "sessionPicker.subtitle": "{{count}} 个会话匹配 \"{{value}}\"",
   "sessionPicker.empty": "没有匹配的会话",
-  "sessionPicker.cancelled": "启动会话提示已取消"
+  "sessionPicker.cancelled": "启动会话提示已取消",
+  "session.item.cloudSession": "云端会话",
+  "session.item.cloudSessionDescription": "本地文件已被清理，已从 Elasticsearch 加载。"
 }

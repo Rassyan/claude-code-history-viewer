@@ -7,7 +7,7 @@
 
 import { useRef, useCallback, useMemo, useState, useEffect, memo } from "react";
 import { OverlayScrollbarsComponent, type OverlayScrollbarsComponentRef } from "overlayscrollbars-react";
-import { MessageCircle, ChevronDown, ChevronUp, Search, X, Camera, Download, ArrowLeft, Bot, ChevronRight } from "lucide-react";
+import { MessageCircle, ChevronDown, ChevronUp, Search, X, Camera, Download, ArrowLeft, Bot, ChevronRight, Cloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { LoadingSpinner, LoadingState } from "@/components/ui/loading";
@@ -104,6 +104,135 @@ const SubagentSessionsPanel = memo(function SubagentSessionsPanel({
           ))}
         </div>
       )}
+    </div>
+  );
+});
+
+interface ClaudeSessionLike {
+  actual_session_id?: string;
+  session_id?: string;
+  file_path?: string;
+  project_name?: string;
+}
+
+const CloudSessionBanner = memo(function CloudSessionBanner({
+  session,
+}: {
+  session: ClaudeSessionLike;
+}) {
+  const { t } = useTranslation();
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restored, setRestored] = useState(false);
+
+  const handleRestore = useCallback(async () => {
+    setIsRestoring(true);
+    try {
+      const { api } = await import("@/services/api");
+      const { getEsSettings } = await import("@/services/esSettings");
+      const settings = await getEsSettings();
+      if (!settings?.endpoint) {
+        const { toast } = await import("sonner");
+        toast.error(t("messageViewer.cloudSessionEsNotConfigured"));
+        return;
+      }
+
+      // Use existing source path if known, else reconstruct under default Claude root.
+      const targetPath =
+        session.file_path ||
+        session.session_id ||
+        `${session.project_name ?? "restored"}/${session.actual_session_id ?? "unknown"}.jsonl`;
+
+      const sessionUuid = session.actual_session_id;
+      if (!sessionUuid) {
+        const { toast } = await import("sonner");
+        toast.error(t("messageViewer.cloudSessionMissingId"));
+        return;
+      }
+
+      const result = (await api("es_restore_session", {
+        endpoint: settings.endpoint,
+        username: settings.username ?? null,
+        password: settings.password ?? null,
+        sessionId: sessionUuid,
+        targetPath,
+      })) as string;
+
+      // Clear the cloud marker on this session in-place so the banner and the
+      // sidebar's cloud icon disappear without requiring an app restart. We
+      // do this BEFORE the rescan/reselect below so any file watcher event
+      // racing with us (notify-debouncer fires on the just-written jsonl)
+      // sees storage_type=undefined and routes through the local loader
+      // instead of `tryLoadFromEs`.
+      const store = useAppStore.getState();
+      store.markSessionRestored(sessionUuid);
+
+      // Rescan local projects so the restored file is picked up by whichever
+      // provider/custom-path owns it (e.g. claude provider with a
+      // `customClaudePaths` entry). Then re-select the local project node and
+      // the local copy of the session, so the sidebar moves the entry off
+      // the ES-only project node and onto the proper local one — matching
+      // the post-restart UX. Best-effort: if anything goes wrong we keep the
+      // in-place markSessionRestored state and just show the success toast.
+      try {
+        await store.scanProjects();
+        const refreshed = useAppStore.getState();
+        const localProject = refreshed.projects.find(
+          (p) =>
+            p.storage_type !== "elasticsearch" &&
+            !p.path.startsWith("es://") &&
+            (targetPath === p.path ||
+              targetPath.startsWith(`${p.path}/`)),
+        );
+        if (localProject) {
+          await refreshed.selectProject(localProject);
+          const after = useAppStore.getState();
+          const localSession = after.sessions.find(
+            (s) => s.actual_session_id === sessionUuid,
+          );
+          if (localSession) {
+            after.setSelectedSession(localSession);
+          }
+        }
+      } catch (rescanErr) {
+        // Non-fatal — markSessionRestored already produced a usable view.
+        console.warn("Post-restore rescan failed:", rescanErr);
+      }
+
+      const { toast } = await import("sonner");
+      toast.success(result || t("messageViewer.cloudSessionRestoredToast"));
+      setRestored(true);
+    } catch (err) {
+      const { toast } = await import("sonner");
+      toast.error(t("messageViewer.cloudSessionRestoreFailed", { error: String(err).slice(0, 200) }));
+    } finally {
+      setIsRestoring(false);
+    }
+  }, [session.actual_session_id, session.file_path, session.session_id, session.project_name, t]);
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-1.5 bg-sky-500/10 border-b border-sky-500/20 text-xs text-sky-600 dark:text-sky-400">
+      <Cloud className="w-3.5 h-3.5 shrink-0" />
+      <span className="flex-1">{t("messageViewer.cloudSessionBanner")}</span>
+      <button
+        type="button"
+        onClick={handleRestore}
+        disabled={isRestoring || restored}
+        className={cn(
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition",
+          "bg-sky-500/20 hover:bg-sky-500/30 text-sky-700 dark:text-sky-300",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+        )}
+        title={t("messageViewer.cloudSessionRestoreTooltip", {
+          defaultValue: "Restore session to local file",
+        })}
+      >
+        <Download className="w-3 h-3" />
+        {isRestoring
+          ? t("messageViewer.cloudSessionRestoring", { defaultValue: "Restoring…" })
+          : restored
+            ? t("messageViewer.cloudSessionRestored", { defaultValue: "Restored" })
+            : t("messageViewer.cloudSessionRestore", { defaultValue: "Restore to local" })}
+      </button>
     </div>
   );
 });
@@ -938,7 +1067,12 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
         </div>
       )}
 
-      {/* SubAgent sessions panel — collapsible (접힘 상태는 MessageViewer에 lift됨) */}
+      {/* Cloud Session Banner — shown when session is loaded from ES */}
+      {selectedSession?.storage_type === "elasticsearch" && (
+        <CloudSessionBanner session={selectedSession} />
+      )}
+
+      {/* SubAgent sessions panel */}
       {subagentSessions.length > 0 && parentSessionStack.length === 0 && (
         <SubagentSessionsPanel
           subagentSessions={subagentSessions}

@@ -1,6 +1,7 @@
 pub mod cli;
 pub mod cli_args;
 pub mod commands;
+pub mod elasticsearch;
 pub mod export;
 pub mod models;
 pub mod providers;
@@ -44,6 +45,11 @@ use crate::commands::{
         get_all_mcp_servers, get_all_settings, get_claude_json_config, get_mcp_servers,
         get_settings_by_scope, read_text_file, save_mcp_servers, save_screenshot, save_settings,
         write_text_file,
+    },
+    elasticsearch::{
+        es_cancel_sync, es_check_connection, es_full_sync, es_get_settings, es_get_stats,
+        es_get_sync_status, es_list_devices, es_list_projects, es_list_sessions,
+        es_load_session_messages, es_restore_session, es_save_settings, es_search_messages,
     },
     feedback::{get_system_info, open_github_issues, send_feedback},
     mcp_presets::{delete_mcp_preset, get_mcp_preset, load_mcp_presets, save_mcp_preset},
@@ -185,6 +191,23 @@ fn run_tauri() {
             as Arc<
                 Mutex<Option<notify_debouncer_mini::Debouncer<notify::RecommendedWatcher>>>,
             >)
+        .setup(|app| {
+            // Schedule a startup auto-incremental ES sync. Runs ~5s after
+            // launch to avoid contending with UI bringup, and only does
+            // anything if ES is configured (no-op otherwise). Live updates
+            // while the app runs are driven by the file watcher once the
+            // frontend starts it (see `trigger_es_sync_for_file`).
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tauri::async_runtime::spawn_blocking(|| {
+                    std::thread::sleep(std::time::Duration::from_secs(5));
+                })
+                .await
+                .ok();
+                run_startup_es_sync(app_handle).await;
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             crate::cli::get_startup_session_hint,
             get_claude_folder_path,
@@ -277,6 +300,20 @@ fn run_tauri() {
             load_antigravity_state,
             get_antigravity_session,
             get_antigravity_project_summary,
+            // Elasticsearch sync & search
+            es_check_connection,
+            es_full_sync,
+            es_cancel_sync,
+            es_get_settings,
+            es_save_settings,
+            es_get_sync_status,
+            es_search_messages,
+            es_load_session_messages,
+            es_restore_session,
+            es_list_sessions,
+            es_list_projects,
+            es_list_devices,
+            es_get_stats,
             // Updater fallback
             force_quit_and_relaunch
         ])
@@ -346,6 +383,132 @@ mod ime_environment_tests {
         let updates = linux_ime_environment_updates(None, None, None);
 
         assert!(updates.is_empty());
+    }
+}
+
+/// Run a one-shot incremental sync at startup if ES is configured.
+///
+/// Reads `~/.claude-history-viewer/es-settings.json` for credentials and
+/// the sync state for `device_id`. If not configured, returns silently.
+/// Emits an `es-sync-progress` "complete" event so the UI can refresh stats.
+async fn run_startup_es_sync(app: tauri::AppHandle) {
+    use tauri::Emitter;
+
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return,
+    };
+    let settings_path = home.join(".claude-history-viewer").join("es-settings.json");
+    let Ok(content) = std::fs::read_to_string(&settings_path) else {
+        log::debug!("ES startup sync: no settings file, skipping");
+        return;
+    };
+    let Ok(settings) = serde_json::from_str::<serde_json::Value>(&content) else {
+        log::warn!(
+            "ES startup sync: failed to parse {}, skipping",
+            settings_path.display()
+        );
+        return;
+    };
+    let endpoint = settings
+        .get("endpoint")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if endpoint.is_empty() {
+        return;
+    }
+    let username = settings.get("username").and_then(|v| v.as_str());
+    let password = settings.get("password").and_then(|v| v.as_str());
+
+    let state = elasticsearch::load_sync_state();
+    if state.device_id.is_empty() {
+        log::debug!("ES startup sync: no device_id, skipping");
+        return;
+    }
+
+    // Read custom Claude paths from user-data.json
+    let user_data_path = home.join(".claude-history-viewer").join("user-data.json");
+    let custom_paths: Vec<String> = std::fs::read_to_string(&user_data_path)
+        .ok()
+        .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
+        .and_then(|m| {
+            m.get("settings")
+                .and_then(|s| s.get("customClaudePaths"))
+                .and_then(|v| v.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|e| e.get("path").and_then(|p| p.as_str()).map(String::from))
+                        .collect()
+                })
+        })
+        .unwrap_or_default();
+
+    let client = elasticsearch::EsClient::new(endpoint, username, password);
+
+    // Health check first — emit error event if down so UI can toast it
+    if !client.health().await.unwrap_or(false) {
+        log::warn!("ES startup sync: health check failed, skipping");
+        let _ = app.emit(
+            "es-sync-progress",
+            serde_json::json!({
+                "phase": "error",
+                "files_processed": 0,
+                "total_files": 0,
+                "messages_indexed": 0,
+                "sessions_indexed": 0,
+                "current_file": "ES unreachable at startup"
+            }),
+        );
+        return;
+    }
+
+    log::info!("ES startup sync: running incremental_sync");
+    let _ = app.emit(
+        "es-sync-progress",
+        serde_json::json!({
+            "phase": "starting",
+            "files_processed": 0,
+            "total_files": 0,
+            "messages_indexed": 0,
+            "sessions_indexed": 0,
+            "current_file": "auto-sync at startup"
+        }),
+    );
+
+    match elasticsearch::incremental_sync(&client, &state.device_id, &custom_paths).await {
+        Ok(stats) => {
+            log::info!(
+                "ES startup sync done: {} files, {} messages, {} sessions",
+                stats.files_processed,
+                stats.messages_indexed,
+                stats.sessions_indexed
+            );
+            let _ = app.emit(
+                "es-sync-progress",
+                serde_json::json!({
+                    "phase": "complete",
+                    "files_processed": stats.files_processed,
+                    "total_files": stats.files_processed,
+                    "messages_indexed": stats.messages_indexed,
+                    "sessions_indexed": stats.sessions_indexed,
+                    "current_file": ""
+                }),
+            );
+        }
+        Err(e) => {
+            log::warn!("ES startup sync failed: {e}");
+            let _ = app.emit(
+                "es-sync-progress",
+                serde_json::json!({
+                    "phase": "error",
+                    "files_processed": 0,
+                    "total_files": 0,
+                    "messages_indexed": 0,
+                    "sessions_indexed": 0,
+                    "current_file": format!("startup sync failed: {e}")
+                }),
+            );
+        }
     }
 }
 

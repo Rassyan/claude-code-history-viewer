@@ -162,6 +162,15 @@ export interface BaseClaudeMessage {
   provider?: import("./session").ProviderId;
   isSidechain?: boolean;
   content?: string | ContentItem[] | Record<string, unknown>;
+  /**
+   * Pre-rendered preview HTML with `<mark>` tags around matched terms.
+   * Set by ES search results that returned highlight fragments. The frontend
+   * renders this verbatim (after sanitization) instead of substring-based
+   * highlighting which fails on tokenizer-driven matches.
+   */
+  searchPreviewHtml?: string;
+  /** Relevance score from ES (BM25). Set by ES search results only. */
+  searchScore?: number;
 }
 
 /** Represents input from the human user */

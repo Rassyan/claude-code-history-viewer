@@ -233,7 +233,7 @@ export function mockApiPlugin(): Plugin {
         });
         req.on("end", () => {
           try {
-            const args = body ? (JSON.parse(body) as Record<string, unknown>) : {};
+            const args = body ? (JSON.parse(body) as unknown as Record<string, unknown>) : {};
             const result = handler(args);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify(result));

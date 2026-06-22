@@ -81,7 +81,7 @@ const getSessionRelevance = (messages: ClaudeMessage[], stats: BoardSessionStats
     // Mentioning .md files or documentation might be high value for summaries
     const hasDocWork = messages.some(m => {
         if (m.type !== 'assistant' || !m.toolUse) return false;
-        const input = m.toolUse.input as Record<string, unknown>;
+        const input = m.toolUse.input as unknown as Record<string, unknown>;
         const path = input?.path || input?.file_path || "";
         return typeof path === 'string' && path.toLowerCase().endsWith('.md');
     });
@@ -192,7 +192,7 @@ export const createBoardSlice: StateCreator<
                             stats.toolCount++;
                             const toolUse = msg.toolUse;
                             const name = toolUse.name as string;
-                            const input = toolUse.input as Record<string, unknown>;
+                            const input = toolUse.input as unknown as Record<string, unknown>;
 
                             // Hoist explicit file edit events for the timeline visualization
                             if (['write_to_file', 'replace_file_content', 'multi_replace_file_content', 'create_file', 'edit_file', 'Edit', 'Replace'].includes(name) || /write|edit|replace|patch/i.test(name)) {

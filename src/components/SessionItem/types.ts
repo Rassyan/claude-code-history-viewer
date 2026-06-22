@@ -10,6 +10,7 @@ export interface SessionItemProps {
 
 export interface SessionHeaderProps {
   isArchivedCodexSession: boolean;
+  isCloudSession: boolean;
   isSelected: boolean;
 }
 

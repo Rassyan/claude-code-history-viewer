@@ -20,6 +20,7 @@ import { useModal } from "@/contexts/modal";
 
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { getAssetPath, isMacOS, isTauri } from "@/utils/platform";
 import { SettingDropdown } from "./SettingDropdown";
 
@@ -56,6 +57,7 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
       await analyticsActions.switchToTokenStats();
     } catch (error) {
       console.error("Failed to load token stats:", error);
+      toast.error("Failed to load token statistics");
     }
   };
 
@@ -65,6 +67,7 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
       await analyticsActions.switchToAnalytics();
     } catch (error) {
       console.error("Failed to load analytics:", error);
+      toast.error("Failed to load analytics");
     }
   };
 
@@ -74,6 +77,7 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
       await analyticsActions.switchToRecentEdits();
     } catch (error) {
       console.error("Failed to load recent edits:", error);
+      toast.error("Failed to load recent edits");
     }
   };
 

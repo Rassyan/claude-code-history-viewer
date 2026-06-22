@@ -67,6 +67,7 @@ export const SessionItem: React.FC<SessionItemProps> = ({
       <div className="flex items-start gap-2.5">
         <SessionHeader
           isArchivedCodexSession={editing.isArchivedCodexSession}
+          isCloudSession={session.storage_type === "elasticsearch"}
           isSelected={isSelected}
         />
 

@@ -93,7 +93,7 @@ pub struct RawLogEntry {
     pub is_meta: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ClaudeMessage {
     pub uuid: String,
     #[serde(rename = "parentUuid")]
@@ -174,6 +174,19 @@ pub struct ClaudeMessage {
     /// Provider identifier (claude, codex, opencode)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider: Option<String>,
+
+    /// Pre-rendered preview text with `<mark>` tags around matched terms.
+    /// Populated only by ES search results that returned highlight fragments.
+    /// Frontend renders this verbatim (after sanitization) instead of running
+    /// its own substring-based highlighter, which fails on tokenizer-driven
+    /// matches (e.g., IK matches "搜索" in text containing only "检索").
+    #[serde(rename = "searchPreviewHtml", skip_serializing_if = "Option::is_none")]
+    pub search_preview_html: Option<String>,
+
+    /// Relevance score from ES (BM25). Populated only by ES search results.
+    /// Surfaced to the UI for debugging/sorting; clients can ignore it.
+    #[serde(rename = "searchScore", skip_serializing_if = "Option::is_none")]
+    pub search_score: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -351,6 +364,8 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         let serialized = serde_json::to_string(&message).unwrap();
@@ -396,6 +411,8 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         };
 
         let serialized = serde_json::to_string(&message).unwrap();

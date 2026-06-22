@@ -6,6 +6,7 @@
 
 import { api } from "@/services/api";
 import { toast } from "sonner";
+import { getEsSettings } from "@/services/esSettings";
 import type {
   ClaudeMessage,
   ClaudeSession,
@@ -239,10 +240,28 @@ export const createMessageSlice: StateCreator<
       const start = performance.now();
 
       const provider = session.provider ?? "claude";
-      const allMessages = await api<ClaudeMessage[]>("load_provider_messages", {
-        provider,
-        sessionPath,
-      });
+
+      // Cloud-only sessions (no local file) bypass the disk loader entirely.
+      // Going through `load_provider_messages` first would trigger a
+      // "file not found" error and rely on the catch-block ES fallback,
+      // which (a) is slower than necessary, (b) was sometimes producing
+      // an empty messages list when the catch path's stale-guard tripped
+      // before tryLoadFromEs ran, leaving the UI showing "no messages"
+      // for a session that clearly has content in ES. Detect the
+      // ES-only marker up front and load directly from ES.
+      let allMessages: ClaudeMessage[];
+      if (session.storage_type === "elasticsearch") {
+        const esMessages = await tryLoadFromEs(session);
+        if (!esMessages || esMessages.length === 0) {
+          throw new Error("No messages found for this cloud session");
+        }
+        allMessages = esMessages;
+      } else {
+        allMessages = await api<ClaudeMessage[]>("load_provider_messages", {
+          provider,
+          sessionPath,
+        });
+      }
 
       // Stale response guard: await 중 다른 세션으로 이동했으면 중단.
       // (in-place reload는 selectedSession이 동일하므로 여기서 걸리지 않음)
@@ -302,6 +321,24 @@ export const createMessageSlice: StateCreator<
       // Stale error guard: await 중 다른 세션으로 이동했으면 abandoned request의
       // 에러·로딩 상태를 현재 UI에 덮어쓰지 않음 (success path의 L212 guard 미러링)
       if (get().selectedSession?.file_path !== session.file_path) return;
+
+      // ES fallback: if local load fails, try loading from Elasticsearch
+      const esMessages = await tryLoadFromEs(session);
+      if (esMessages && esMessages.length > 0) {
+        if (get().selectedSession?.file_path !== session.file_path) return;
+        set({
+          messages: esMessages,
+          pagination: {
+            currentOffset: esMessages.length,
+            pageSize: esMessages.length,
+            totalCount: esMessages.length,
+            hasMore: false,
+            isLoadingMore: false,
+          },
+          isLoadingMessages: false,
+        });
+        return;
+      }
 
       console.error("Failed to load session messages:", error);
       // 서브에이전트 로딩 실패 시 toast로 알림 (전체 페이지 에러 방지).
@@ -862,3 +899,36 @@ export const createMessageSlice: StateCreator<
   },
   };
 };
+
+// ============================================================================
+// ES fallback helper
+// ============================================================================
+
+/**
+ * Try loading session messages from Elasticsearch when local file is missing.
+ * Returns messages array if successful, null otherwise.
+ */
+async function tryLoadFromEs(session: ClaudeSession): Promise<ClaudeMessage[] | null> {
+  try {
+    const settings = await getEsSettings();
+    if (!settings?.endpoint) return null;
+
+    // Extract the actual session UUID from file_path
+    const sessionId = session.actual_session_id ||
+      session.file_path.split("/").pop()?.replace(".jsonl", "") ||
+      "";
+
+    if (!sessionId) return null;
+
+    const messages = await api<ClaudeMessage[]>("es_load_session_messages", {
+      endpoint: settings.endpoint,
+      username: settings.username,
+      password: settings.password,
+      sessionId,
+    });
+
+    return messages && messages.length > 0 ? messages : null;
+  } catch {
+    return null;
+  }
+}

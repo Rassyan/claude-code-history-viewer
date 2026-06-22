@@ -18,6 +18,7 @@ import {
   createEmptySearchState,
 } from "./types";
 import { hasNonDefaultProvider } from "../../utils/providers";
+import { getEsSettings } from "@/services/esSettings";
 
 // ============================================================================
 // State Interface
@@ -97,6 +98,14 @@ export const createSearchSlice: StateCreator<
 
     set({ searchQuery: query });
     try {
+      // Try ES search first (if configured)
+      const esResults = await tryEsSearch(query, filters);
+      if (esResults !== null) {
+        set({ searchResults: esResults });
+        return;
+      }
+
+      // Fallback to local search
       const customClaudePaths = get().userMetadata?.settings?.customClaudePaths;
       const hasCustomPaths = customClaudePaths != null && customClaudePaths.length > 0;
       const settings = get().userMetadata?.settings;
@@ -119,6 +128,12 @@ export const createSearchSlice: StateCreator<
       set({ searchResults: results });
     } catch (error) {
       console.error("Failed to search messages:", error);
+      // Per CLAUDE.md "에러 처리": async failures need user-visible feedback,
+      // not just console.error / silent setError. Mirror the pattern used by
+      // setSessionSearchQuery so the user sees the same kind of toast for
+      // both global and session search failures.
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to search messages: ${message}`);
       get().setError({ type: AppErrorType.UNKNOWN, message: String(error) });
     }
   },
@@ -286,3 +301,47 @@ export const createSearchSlice: StateCreator<
   },
   };
 };
+
+// ============================================================================
+// ES search helper
+// ============================================================================
+
+/** Try ES search. Returns results array if ES is configured and responds, or null to fallback. */
+async function tryEsSearch(
+  query: string,
+  filters: SearchFilters
+): Promise<ClaudeMessage[] | null> {
+  const settings = await getEsSettings();
+  if (!settings?.endpoint) return null;
+
+  try {
+    const results = await api<ClaudeMessage[]>("es_search_messages", {
+      endpoint: settings.endpoint,
+      username: settings.username,
+      password: settings.password,
+      query,
+      filters,
+      limit: 100,
+    });
+    return results;
+  } catch (err) {
+    notifyEsErrorOnce(`ES search failed, using local fallback: ${String(err)}`);
+    // ES unavailable, fall back to local search
+    return null;
+  }
+}
+
+// Show a single toast per session for ES connectivity errors (silent fallbacks
+// otherwise hide problems from users).
+let esErrorToastedThisSession = false;
+async function notifyEsErrorOnce(msg: string): Promise<void> {
+  if (esErrorToastedThisSession) return;
+  esErrorToastedThisSession = true;
+  try {
+    const { toast } = await import("sonner");
+    toast.warning(msg);
+  } catch {
+    /* sonner missing - log only */
+    console.warn("[ES]", msg);
+  }
+}

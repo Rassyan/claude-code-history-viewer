@@ -1,9 +1,12 @@
 use crate::utils::is_safe_storage_id;
+use lru::LruCache;
 use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebouncedEvent, DebouncedEventKind, Debouncer};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
@@ -276,6 +279,10 @@ fn handle_file_event(app_handle: &AppHandle, event: &DebouncedEvent) {
 
     super::session::invalidate_search_cache();
 
+    // Best-effort: mirror the changed file into Elasticsearch if ES sync is
+    // configured. No-op when ES is not set up. Non-blocking.
+    trigger_es_sync_for_file(&event.path);
+
     if let Err(e) = app_handle.emit(&watch_event.event_type, &watch_event) {
         log::error!("Failed to emit file watch event: {e}");
     }
@@ -499,6 +506,189 @@ fn remember_opencode_project_id(storage_root: &Path, session_id: &str, project_i
     if let Ok(mut guard) = cache.lock() {
         guard.insert(key, project_id.to_string());
     }
+}
+
+// ============================================================================
+// Elasticsearch incremental sync (watcher-triggered)
+// ============================================================================
+
+/// Global concurrent-sync cap — at most `MAX_CONCURRENT_SYNC_TASKS` watcher-
+/// triggered ES syncs may run at any time. Additional events are silently skipped;
+/// the debouncer re-fires every 500ms, so a skipped file will be retried shortly.
+///
+/// Without this cap, every changed `.jsonl` file can spawn an independent async
+/// task. When ES is unreachable (no timeout on the reqwest client prior to the
+/// fix in `client.rs`), *all* of them hang simultaneously, each holding an mmap
+/// of its file (hundreds of MB for large sessions) plus a batch buffer with up to
+/// 500 serialized message documents. Observed memory: 26 GB in production.
+const MAX_CONCURRENT_SYNC_TASKS: usize = 2;
+static SYNC_TASK_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+fn try_acquire_sync_permit() -> bool {
+    loop {
+        let current = SYNC_TASK_COUNT.load(Ordering::Acquire);
+        if current >= MAX_CONCURRENT_SYNC_TASKS {
+            return false;
+        }
+        if SYNC_TASK_COUNT
+            .compare_exchange(current, current + 1, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+        {
+            return true;
+        }
+    }
+}
+
+fn release_sync_permit() {
+    SYNC_TASK_COUNT.fetch_sub(1, Ordering::Release);
+}
+
+/// RAII guard for the global concurrent-sync permit.
+struct SyncPermitGuard;
+
+impl SyncPermitGuard {
+    fn try_acquire() -> Option<Self> {
+        if try_acquire_sync_permit() {
+            Some(Self)
+        } else {
+            None
+        }
+    }
+}
+
+impl Drop for SyncPermitGuard {
+    fn drop(&mut self) {
+        release_sync_permit();
+    }
+}
+/// `notify_debouncer_mini` already debounces filesystem events at 500ms, but a
+/// rapidly-growing file may produce overlapping triggers; this in-flight set
+/// suppresses a second sync while the first is still running.
+///
+/// FIXED: Now an LRU set that bounds entries to 5,000 maximum.
+/// Each entry is ~100 bytes, capping memory at ~500KB regardless of sync frequency.
+///
+/// Motivation: The previous unbounded `HashSet` could accumulate file paths indefinitely
+/// if async tasks failed or panicked, causing a ~1-5GB secondary leak. LRU ensures bounded memory.
+type EsSyncInflightSet = LruCache<String, ()>;
+
+static ES_SYNC_INFLIGHT: std::sync::OnceLock<Mutex<EsSyncInflightSet>> = std::sync::OnceLock::new();
+
+/// Initialize the in-flight ES sync tracker with a bounded LRU of 5,000 entries.
+fn create_es_sync_inflight() -> Mutex<EsSyncInflightSet> {
+    // 5,000 entries × ~100 bytes/entry = ~500KB peak memory
+    let capacity = NonZeroUsize::new(5_000).expect("5,000 is non-zero");
+    Mutex::new(LruCache::new(capacity))
+}
+
+fn try_acquire_sync_slot(path: &str) -> bool {
+    let lock = ES_SYNC_INFLIGHT.get_or_init(create_es_sync_inflight);
+    // Recover from poisoning: the set only holds strings, so its data stays
+    // coherent even if a previous holder panicked.
+    let mut guard = lock
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if guard.contains(path) {
+        return false;
+    }
+    // LRU automatically evicts old entries when capacity is exceeded
+    guard.put(path.to_string(), ());
+    true
+}
+
+fn release_sync_slot(path: &str) {
+    if let Some(lock) = ES_SYNC_INFLIGHT.get() {
+        let mut guard = lock
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        guard.pop(path);
+    }
+}
+
+/// RAII guard so the in-flight slot is released even if the sync task panics
+/// or returns early — a leaked slot would permanently block future syncs of
+/// that file until app restart.
+struct SyncSlotGuard(String);
+
+impl Drop for SyncSlotGuard {
+    fn drop(&mut self) {
+        release_sync_slot(&self.0);
+    }
+}
+
+/// Trigger ES incremental sync for a changed file (non-blocking, best-effort).
+///
+/// Uses Tauri's async runtime to avoid blocking the watcher callback.
+/// Reads ES config from sync state; does nothing if ES is not configured.
+fn trigger_es_sync_for_file(path: &Path) {
+    // Only sync .jsonl files
+    if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
+        return;
+    }
+
+    let state = crate::elasticsearch::load_sync_state();
+    if state.es_endpoint.is_empty() || state.device_id.is_empty() {
+        return; // ES not configured
+    }
+
+    let path_str = path.to_string_lossy().to_string();
+    if !try_acquire_sync_slot(&path_str) {
+        log::debug!("ES sync already in-flight for {path_str}, skipping");
+        return;
+    }
+
+    // Global concurrent-sync cap: skip this event if too many syncs are
+    // already in flight. The debouncer re-fires in 500ms, so the file
+    // will be retried shortly.
+    let Some(permit) = SyncPermitGuard::try_acquire() else {
+        log::debug!("ES sync: max concurrent tasks ({MAX_CONCURRENT_SYNC_TASKS}) reached, deferring {path_str}");
+        return;
+    };
+
+    let path = path.to_path_buf();
+    let endpoint = state.es_endpoint.clone();
+    let device_id = state.device_id.clone();
+
+    // Spawn async task on Tauri's built-in tokio runtime.
+    tauri::async_runtime::spawn(async move {
+        let _permit = permit;
+        let _slot = SyncSlotGuard(path_str);
+        let (username, password) = load_es_credentials();
+        let client = crate::elasticsearch::EsClient::new(
+            &endpoint,
+            username.as_deref(),
+            password.as_deref(),
+        );
+
+        if let Err(e) = crate::elasticsearch::sync_single_file(&client, &path, &device_id).await {
+            log::warn!("ES incremental sync failed for {}: {e}", path.display());
+        }
+    });
+}
+
+/// Load ES credentials from the app's settings file.
+fn load_es_credentials() -> (Option<String>, Option<String>) {
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return (None, None),
+    };
+
+    let settings_path = home.join(".claude-history-viewer").join("es-settings.json");
+    if let Ok(content) = std::fs::read_to_string(&settings_path) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            let username = val
+                .get("username")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let password = val
+                .get("password")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            return (username, password);
+        }
+    }
+
+    (None, None)
 }
 
 #[cfg(test)]

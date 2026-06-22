@@ -400,9 +400,10 @@ function App() {
         }
       } catch (error) {
         console.error(`Failed to auto-load ${activeView} view:`, error);
+        toast.error(t("session.selectError"));
       }
     },
-    [clearProjectSelection, selectProject, analyticsActions, setDateFilter]
+    [clearProjectSelection, selectProject, analyticsActions, setDateFilter, t]
   );
 
   const handleSessionHover = useCallback(

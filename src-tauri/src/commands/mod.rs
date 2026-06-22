@@ -1,6 +1,7 @@
 pub mod antigravity;
 pub mod archive;
 pub mod claude_settings;
+pub mod elasticsearch;
 pub mod feedback;
 pub mod fs_utils;
 pub mod mcp_presets;

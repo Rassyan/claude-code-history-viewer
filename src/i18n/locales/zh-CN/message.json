@@ -88,7 +88,6 @@
   "navigator.noMessages": "此会话没有消息",
   "navigator.close": "关闭导航器",
   "navigator.messageCount": "{{count}} 条消息",
-
   "filter.title": "筛选",
   "filter.roles": "角色",
   "filter.role.user": "用户",
@@ -100,5 +99,14 @@
   "filter.content.commands": "命令",
   "filter.reset": "重置筛选",
   "filter.active": "筛选已启用",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "messageViewer.cloudSessionBanner": "此会话从 Elasticsearch 加载，本地文件已被清理。",
+  "messageViewer.cloudSessionEsNotConfigured": "尚未配置 Elasticsearch",
+  "messageViewer.cloudSessionMissingId": "缺少会话 ID",
+  "messageViewer.cloudSessionRestoredToast": "会话已恢复",
+  "messageViewer.cloudSessionRestoreFailed": "恢复失败：{{error}}",
+  "messageViewer.cloudSessionRestoreTooltip": "将会话恢复为本地文件",
+  "messageViewer.cloudSessionRestoring": "恢复中…",
+  "messageViewer.cloudSessionRestored": "已恢复",
+  "messageViewer.cloudSessionRestore": "恢复到本地"
 }

@@ -163,6 +163,10 @@ export interface BaseClaudeMessage {
   projectName?: string;
   isSidechain?: boolean;
   content?: string | ContentItem[] | Record<string, unknown>;
+  /** Pre-rendered preview HTML from ES highlight (with `<mark>` tags) */
+  searchPreviewHtml?: string;
+  /** Relevance score from ES (BM25) */
+  searchScore?: number;
 }
 
 /** Represents input from the human user */

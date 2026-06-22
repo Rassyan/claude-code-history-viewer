@@ -88,7 +88,6 @@
   "navigator.noMessages": "이 세션에 메시지가 없습니다",
   "navigator.close": "네비게이터 닫기",
   "navigator.messageCount": "{{count}}개 메시지",
-
   "filter.title": "필터",
   "filter.roles": "역할",
   "filter.role.user": "사용자",
@@ -100,5 +99,14 @@
   "filter.content.commands": "명령어",
   "filter.reset": "필터 초기화",
   "filter.active": "필터 활성",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "messageViewer.cloudSessionBanner": "이 세션은 Elasticsearch에서 로드되었습니다. 로컬 파일은 정리되었습니다.",
+  "messageViewer.cloudSessionEsNotConfigured": "Elasticsearch가 설정되지 않았습니다",
+  "messageViewer.cloudSessionMissingId": "세션 ID가 없습니다",
+  "messageViewer.cloudSessionRestoredToast": "세션이 복원되었습니다",
+  "messageViewer.cloudSessionRestoreFailed": "복원 실패: {{error}}",
+  "messageViewer.cloudSessionRestoreTooltip": "세션을 로컬 파일로 복원",
+  "messageViewer.cloudSessionRestoring": "복원 중…",
+  "messageViewer.cloudSessionRestored": "복원됨",
+  "messageViewer.cloudSessionRestore": "로컬로 복원"
 }

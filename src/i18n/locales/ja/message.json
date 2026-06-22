@@ -88,7 +88,6 @@
   "navigator.noMessages": "このセッションにメッセージはありません",
   "navigator.close": "ナビゲーターを閉じる",
   "navigator.messageCount": "{{count}}件のメッセージ",
-
   "filter.title": "フィルター",
   "filter.roles": "ロール",
   "filter.role.user": "ユーザー",
@@ -100,5 +99,14 @@
   "filter.content.commands": "コマンド",
   "filter.reset": "フィルターをリセット",
   "filter.active": "フィルター有効",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "messageViewer.cloudSessionBanner": "このセッションは Elasticsearch から読み込まれました。ローカルファイルはクリーンアップされています。",
+  "messageViewer.cloudSessionEsNotConfigured": "Elasticsearch が設定されていません",
+  "messageViewer.cloudSessionMissingId": "セッション ID がありません",
+  "messageViewer.cloudSessionRestoredToast": "セッションを復元しました",
+  "messageViewer.cloudSessionRestoreFailed": "復元に失敗しました: {{error}}",
+  "messageViewer.cloudSessionRestoreTooltip": "セッションをローカルファイルに復元",
+  "messageViewer.cloudSessionRestoring": "復元中…",
+  "messageViewer.cloudSessionRestored": "復元済み",
+  "messageViewer.cloudSessionRestore": "ローカルに復元"
 }

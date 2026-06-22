@@ -492,6 +492,8 @@ pub fn load_messages(session_path: &str) -> Result<Vec<ClaudeMessage>, String> {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: Some("opencode".to_string()),
+            search_preview_html: None,
+            search_score: None,
         });
     }
 
@@ -898,6 +900,8 @@ fn load_messages_with_conn(conn: &Connection, session_id: &str) -> Option<Vec<Cl
             compact_metadata: None,
             microcompact_metadata: None,
             provider: Some("opencode".to_string()),
+            search_preview_html: None,
+            search_score: None,
         });
     }
 

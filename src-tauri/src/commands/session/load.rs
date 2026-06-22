@@ -1195,6 +1195,8 @@ fn parse_line_to_message(
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         });
     }
 
@@ -1256,6 +1258,8 @@ fn parse_line_to_message(
         compact_metadata: log_entry.compact_metadata,
         microcompact_metadata: log_entry.microcompact_metadata,
         provider: None,
+        search_preview_html: None,
+        search_score: None,
     })
 }
 
@@ -1325,6 +1329,8 @@ fn parse_line_simd(
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            search_preview_html: None,
+            search_score: None,
         });
     }
 
@@ -1399,6 +1405,8 @@ fn parse_line_simd(
         compact_metadata: log_entry.compact_metadata,
         microcompact_metadata: log_entry.microcompact_metadata,
         provider: None,
+        search_preview_html: None,
+        search_score: None,
     })
 }
 

@@ -84,12 +84,10 @@
   "navigator.role.assistant": "Assistant",
   "navigator.role.system": "System",
   "navigator.role.summary": "Summary",
-
   "navigator.userOnly": "Show user messages only",
   "navigator.noMessages": "No messages in this session",
   "navigator.close": "Close navigator",
   "navigator.messageCount": "{{count}} messages",
-
   "filter.title": "Filter",
   "filter.roles": "Roles",
   "filter.role.user": "User",
@@ -101,5 +99,14 @@
   "filter.content.commands": "Commands",
   "filter.reset": "Reset Filters",
   "filter.active": "Filters active",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "messageViewer.cloudSessionBanner": "This session is loaded from Elasticsearch. The local file has been cleaned up.",
+  "messageViewer.cloudSessionEsNotConfigured": "Elasticsearch is not configured",
+  "messageViewer.cloudSessionMissingId": "Missing session id",
+  "messageViewer.cloudSessionRestoredToast": "Session restored",
+  "messageViewer.cloudSessionRestoreFailed": "Restore failed: {{error}}",
+  "messageViewer.cloudSessionRestoreTooltip": "Restore session to local file",
+  "messageViewer.cloudSessionRestoring": "Restoring…",
+  "messageViewer.cloudSessionRestored": "Restored",
+  "messageViewer.cloudSessionRestore": "Restore to local"
 }

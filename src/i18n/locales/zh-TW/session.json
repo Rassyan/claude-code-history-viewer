@@ -215,5 +215,7 @@
   "sessionPicker.title": "選擇工作階段",
   "sessionPicker.subtitle": "{{count}} 個工作階段符合 \"{{value}}\"",
   "sessionPicker.empty": "沒有符合的工作階段",
-  "sessionPicker.cancelled": "啟動時的工作階段提示已取消"
+  "sessionPicker.cancelled": "啟動時的工作階段提示已取消",
+  "session.item.cloudSession": "雲端工作階段",
+  "session.item.cloudSessionDescription": "本機檔案已被清理，已從 Elasticsearch 載入。"
 }

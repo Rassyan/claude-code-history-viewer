@@ -56,7 +56,7 @@ export interface ClaudeProject {
   /** Provider identifier (claude, codex, opencode) */
   provider?: ProviderId;
   /** Storage type (json, jsonl, sqlite) */
-  storage_type?: "json" | "jsonl" | "sqlite";
+  storage_type?: "json" | "jsonl" | "sqlite" | "elasticsearch";
   /** Label for custom Claude directory source (e.g., "Personal") */
   custom_directory_label?: string;
 }
@@ -79,7 +79,7 @@ export interface ClaudeSession {
   /** Provider identifier (claude, codex, opencode) */
   provider?: ProviderId;
   /** Storage type (json, jsonl, sqlite) */
-  storage_type?: "json" | "jsonl" | "sqlite";
+  storage_type?: "json" | "jsonl" | "sqlite" | "elasticsearch";
   /**
    * Originating client/surface for the session. Raw value from the JSONL
    * `entrypoint` field. Known values:

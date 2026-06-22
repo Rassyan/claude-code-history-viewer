@@ -895,6 +895,7 @@ dependencies = [
  "proptest",
  "rayon",
  "regex",
+ "reqwest 0.12.20",
  "rstest",
  "rusqlite",
  "rust-embed",

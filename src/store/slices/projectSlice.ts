@@ -6,6 +6,7 @@
 
 import { api } from "@/services/api";
 import { storageAdapter } from "@/services/storage";
+import { getEsSettings } from "@/services/esSettings";
 import type { ClaudeProject, ClaudeSession, AppError, ProviderId, UserSettings } from "../../types";
 import { AppErrorType } from "../../types";
 import type { StateCreator } from "zustand";
@@ -46,6 +47,7 @@ export interface ProjectSliceActions {
   setError: (error: AppError | null) => void;
   setSelectedSession: (session: ClaudeSession | null) => void;
   setSessions: (sessions: ClaudeSession[]) => void;
+  markSessionRestored: (actualSessionId: string) => void;
   getGroupedProjects: () => WorktreeGroupingResult;
   getDirectoryGroupedProjects: () => DirectoryGroupingResult;
   getEffectiveGroupingMode: () => GroupingMode;
@@ -368,7 +370,10 @@ export const createProjectSlice: StateCreator<
       if (requestId !== getRequestId("scanProjects")) {
         return;
       }
-      set({ projects });
+
+      // Merge ES-only projects (those deleted locally but still in ES)
+      const mergedProjects = await mergeCloudProjects(projects);
+      set({ projects: mergedProjects });
       if (projects.length === 0 && providerErrors.length > 0) {
         set({
           error: {
@@ -422,21 +427,33 @@ export const createProjectSlice: StateCreator<
       isLoadingSessions: true,
     });
     try {
-      const provider = project.provider ?? "claude";
-      const sessions = provider !== "claude"
-        ? await api<ClaudeSession[]>("load_provider_sessions", {
-            provider,
-            projectPath: project.path,
-            excludeSidechain: get().excludeSidechain,
-          })
-        : await api<ClaudeSession[]>("load_project_sessions", {
-            projectPath: project.path,
-            excludeSidechain: get().excludeSidechain,
-          });
+      // ES-only project: load sessions directly from ES, skip local
+      const isCloudProject =
+        project.storage_type === "elasticsearch" || project.path.startsWith("es://");
+
+      let localSessions: ClaudeSession[] = [];
+      if (!isCloudProject) {
+        const provider = project.provider ?? "claude";
+        localSessions = provider !== "claude"
+          ? await api<ClaudeSession[]>("load_provider_sessions", {
+              provider,
+              projectPath: project.path,
+              excludeSidechain: get().excludeSidechain,
+            })
+          : await api<ClaudeSession[]>("load_project_sessions", {
+              projectPath: project.path,
+              excludeSidechain: get().excludeSidechain,
+            });
+      }
+
+      // Merge with ES cloud sessions (best-effort, non-blocking)
+      // For cloud projects, this loads ALL sessions from ES.
+      // For local projects, this appends ES-only sessions.
+      const mergeKey = isCloudProject ? project.name : project.path;
+      const sessions = await mergeCloudSessions(localSessions, mergeKey);
       set({ sessions });
 
       // Update project's session_count to match actual loaded sessions
-      // (scan_projects counts files, but load_sessions filters invalid ones)
       if (sessions.length !== project.session_count) {
         const projects = get().projects.map((p) =>
           p.path === project.path
@@ -499,6 +516,23 @@ export const createProjectSlice: StateCreator<
 
   setSessions: (sessions: ClaudeSession[]) => {
     set({ sessions });
+  },
+
+  // Called after a successful es_restore_session so the cloud icon (session list)
+  // and "from Elasticsearch" banner (message viewer) clear immediately, without
+  // waiting for an app restart / project re-select. The Rust restore command
+  // writes the JSONL to the same file_path the ES-only session already pointed
+  // at, so flipping storage_type off in memory is consistent with disk state.
+  markSessionRestored: (actualSessionId: string) => {
+    const { sessions, selectedSession } = get();
+    const stripStorage = (s: ClaudeSession): ClaudeSession =>
+      s.actual_session_id === actualSessionId && s.storage_type === "elasticsearch"
+        ? { ...s, storage_type: undefined }
+        : s;
+    set({
+      sessions: sessions.map(stripStorage),
+      selectedSession: selectedSession ? stripStorage(selectedSession) : selectedSession,
+    });
   },
 
   getGroupedProjects: () => {
@@ -564,3 +598,115 @@ export const createProjectSlice: StateCreator<
     return "none";
   },
 });
+
+// ============================================================================
+// ES cloud session merge helper
+// ============================================================================
+
+// One-shot toast for ES merge failures. `selectProject`/`scanProjects` run on
+// every navigation — a toast per click would be noise, but full silence hides
+// real connectivity problems from the user (CLAUDE.md error-feedback rule).
+let esMergeWarnedThisSession = false;
+function warnEsMergeFailureOnce(err: unknown): void {
+  if (esMergeWarnedThisSession) return;
+  esMergeWarnedThisSession = true;
+  import("sonner")
+    .then(({ toast }) =>
+      toast.warning(
+        `Cloud sessions unavailable, showing local data only: ${String(err).slice(0, 120)}`
+      )
+    )
+    .catch(() => console.warn("[ES] cloud merge failed:", err));
+}
+
+/**
+ * Merge local sessions with cloud-only sessions from ES.
+ * Cloud sessions (those whose local files have been cleaned up) are appended
+ * to the local list with storage_type="elasticsearch".
+ */
+async function mergeCloudSessions(
+  localSessions: ClaudeSession[],
+  projectPath: string
+): Promise<ClaudeSession[]> {
+  try {
+    const settings = await getEsSettings();
+    if (!settings?.endpoint) return localSessions;
+
+    const cloudSessions = await api<ClaudeSession[]>("es_list_sessions", {
+      endpoint: settings.endpoint,
+      username: settings.username,
+      password: settings.password,
+      projectPath,
+    });
+
+    if (!cloudSessions || cloudSessions.length === 0) return localSessions;
+
+    // Find sessions that exist in ES but not locally
+    const localIds = new Set(localSessions.map((s) => s.actual_session_id));
+    const cloudOnly = cloudSessions.filter(
+      (cs) => !localIds.has(cs.actual_session_id)
+    );
+
+    if (cloudOnly.length === 0) return localSessions;
+
+    return [...localSessions, ...cloudOnly];
+  } catch (err) {
+    // ES unavailable — fall back to local sessions, but tell the user once.
+    warnEsMergeFailureOnce(err);
+    return localSessions;
+  }
+}
+
+/**
+ * Merge local projects with cloud-only projects from ES.
+ * Projects that exist in ES but not locally (deleted) are appended
+ * with storage_type="elasticsearch" and a cloud path prefix.
+ */
+async function mergeCloudProjects(
+  localProjects: ClaudeProject[]
+): Promise<ClaudeProject[]> {
+  try {
+    const settings = await getEsSettings();
+    if (!settings?.endpoint) return localProjects;
+
+    const cloudProjects = await api<ClaudeProject[]>("es_list_projects", {
+      endpoint: settings.endpoint,
+      username: settings.username,
+      password: settings.password,
+    });
+
+    if (!cloudProjects || cloudProjects.length === 0) return localProjects;
+
+    // Find projects that exist in ES but not locally.
+    //
+    // Naively comparing on `name` doesn't work because the local project's
+    // display name has already been decoded by the backend (e.g. `ces9`)
+    // while ES's `project_name` aggregation key is the raw encoded
+    // directory name (e.g. `-Users-rassyan-IdeaProjects-ces9`). A pure-name
+    // diff therefore reports every ES project as "cloud-only" and the
+    // sidebar ends up double-listing every project. We instead build the
+    // dedup set from each local project's path basename, which is what
+    // ES indexed in the first place, and fall back to `name` for providers
+    // whose path is not a filesystem-style encoded directory.
+    const pathBasename = (p: string): string => {
+      // Match Rust `Path::file_name` semantics for both POSIX and Windows.
+      const cleaned = p.replace(/[\\/]+$/, "");
+      const idx = Math.max(cleaned.lastIndexOf("/"), cleaned.lastIndexOf("\\"));
+      return idx === -1 ? cleaned : cleaned.slice(idx + 1);
+    };
+    const localKeys = new Set<string>();
+    for (const p of localProjects) {
+      localKeys.add(p.name);
+      const basename = pathBasename(p.path);
+      if (basename) localKeys.add(basename);
+    }
+    const cloudOnly = cloudProjects.filter((cp) => !localKeys.has(cp.name));
+
+    if (cloudOnly.length === 0) return localProjects;
+
+    return [...localProjects, ...cloudOnly];
+  } catch (err) {
+    warnEsMergeFailureOnce(err);
+    return localProjects;
+  }
+}

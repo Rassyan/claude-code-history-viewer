@@ -88,7 +88,6 @@
   "navigator.noMessages": "此會話沒有訊息",
   "navigator.close": "關閉導覽器",
   "navigator.messageCount": "{{count}} 則訊息",
-
   "filter.title": "篩選",
   "filter.roles": "角色",
   "filter.role.user": "使用者",
@@ -100,5 +99,14 @@
   "filter.content.commands": "指令",
   "filter.reset": "重設篩選",
   "filter.active": "篩選已啟用",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "messageViewer.cloudSessionBanner": "此會話從 Elasticsearch 載入，本地檔案已被清理。",
+  "messageViewer.cloudSessionEsNotConfigured": "尚未設定 Elasticsearch",
+  "messageViewer.cloudSessionMissingId": "缺少工作階段 ID",
+  "messageViewer.cloudSessionRestoredToast": "工作階段已還原",
+  "messageViewer.cloudSessionRestoreFailed": "還原失敗：{{error}}",
+  "messageViewer.cloudSessionRestoreTooltip": "將工作階段還原為本機檔案",
+  "messageViewer.cloudSessionRestoring": "還原中…",
+  "messageViewer.cloudSessionRestored": "已還原",
+  "messageViewer.cloudSessionRestore": "還原到本機"
 }
