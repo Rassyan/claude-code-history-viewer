@@ -145,6 +145,14 @@ Antigravity note: the viewer resolves the Antigravity root as `~/.gemini/antigra
 |---------|-------|
 | **Antigravity** | Loaded through the standard provider pipeline. Sessions come from the token monitor cache and participate in project/session views, token stats, analytics, and global search without a separate UI mode. |
 
+### New in v1.29.0
+
+| Feature | Description |
+|---------|-------------|
+| **Z Code provider** | Browse Z Code (Z.ai) sessions from `~/.zcode/cli/db/db.sqlite` with titles, tool calls, thinking and token usage — 31 assistants in total |
+| **Subagent cost in its session** | A session's billed tokens and cost now include the subagent runs it delegated to (Claude Code and Z Code); *Conversation Only* still shows the main thread |
+| **Faster session lists** | Large Claude and Codex histories load their session lists several times faster |
+
 ### New in v1.28.0
 
 | Feature | Description |

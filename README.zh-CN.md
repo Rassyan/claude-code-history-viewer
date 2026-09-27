@@ -145,6 +145,14 @@ Antigravity 说明：查看器将 Antigravity 根目录解析为 `~/.gemini/anti
 |---------|-------|
 | **Antigravity** | 走现有统一 provider 数据流接入。会话来自 token monitor 缓存，可直接参与项目/会话浏览、Token 统计、分析仪表板和全局搜索，无需单独的专用页面。 |
 
+### v1.29.0 新增
+
+| 功能 | 说明 |
+|------|------|
+| **Z Code 提供商** | 浏览 `~/.zcode/cli/db/db.sqlite` 中的 Z Code（Z.ai）会话，包含标题、工具调用、思考过程和 token 用量 — 共支持 31 个助手 |
+| **子代理费用计入会话** | 会话的计费 token 和费用现在包含其委派的子代理运行（Claude Code、Z Code）；*仅对话* 模式仍只显示主对话 |
+| **更快的会话列表** | 大型 Claude 和 Codex 历史的会话列表加载速度提升数倍 |
+
 ### v1.28.0 新增
 
 | 功能 | 说明 |
