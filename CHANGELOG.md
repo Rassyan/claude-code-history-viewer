@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-09-28
+
+### Added
+- **Z Code (Z.ai) provider** — sessions from Z Code's SQLite store (`~/.zcode/cli/db/db.sqlite`, or `ZCODE_HOME`) with titles, tool calls, thinking and token usage, searchable and included in analytics. Brings coverage to 31 assistants. (#573)
+
+### Changed
+- **Subagent usage counts toward the session that spawned it.** Under the default *Billing Total* mode, a session's token and cost stats now include the subagent runs it delegated to, and *Conversation Only* still shows the main thread alone. This matches the existing policy that subagent (sidechain) usage is billed usage. (#577)
+  - **Claude Code:** transcripts under `<session>/subagents/` are folded into their parent session. In the Token Statistics per-session list, the project summary and session comparison, they no longer appear as separate sessions. Their usage shows in the parent's row, so session counts drop, but project and global totals are unchanged. On a real session with 11 runs, subagents were ~34% of its billed usage. (#594)
+  - **Z Code:** subagent runs were previously left out of every stats view. They now count toward their parent session, and toward project and global totals. (#593)
+- Redundant Claude predecessor sessions are hidden from the session list when every continuation already contains their history and they have no activity of their own after a branch point. (#572)
+
+### Performance
+- **Session lists load much faster on large histories.** The cross-file chain scan skips JSON parsing for transcripts without a `compact_boundary` event, using a memory-mapped prefilter, and runs in parallel. Codex rollouts also load in parallel. Measured on 16k Claude sessions (9.9 GB), the first load dropped from 22 s to 2 s. (#591)
+
+### Internal
+- Frontend CI now also runs `vite build`, so bundler and config failures surface on the PR instead of at release time. (#592)
+
 ## [1.28.0] - 2026-09-26
 
 ### Added
