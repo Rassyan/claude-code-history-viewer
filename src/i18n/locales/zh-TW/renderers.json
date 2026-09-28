@@ -391,5 +391,15 @@
   "webSearchResultRenderer.noResults": "無結果",
   "webSearchResultRenderer.results": "筆結果",
   "webSearchResultRenderer.title": "網頁搜尋結果",
-  "globalSearch.resultsCapped": "僅顯示前 {{count}} 筆結果 — 縮小查詢範圍以查看更多"
+  "globalSearch.resultsCapped": "僅顯示前 {{count}} 筆結果 — 縮小查詢範圍以查看更多",
+  "globalSearch.mode.smart": "智慧",
+  "globalSearch.mode.smartHint": "分詞 OR 比對，依相關度排序",
+  "globalSearch.mode.phrase": "片語",
+  "globalSearch.mode.phraseHint": "精確片語比對（分詞後）",
+  "globalSearch.mode.fuzzy": "模糊",
+  "globalSearch.mode.fuzzyHint": "容許錯字（雜訊較多）",
+  "globalSearch.sort.relevance": "相關度",
+  "globalSearch.sort.time": "最新",
+  "globalSearch.resultsFromEs": "來自 Elasticsearch 的結果",
+  "globalSearch.relevanceScoreHint": "Elasticsearch BM25 分數（越高越相關）"
 }

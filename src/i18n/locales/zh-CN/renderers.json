@@ -391,5 +391,15 @@
   "webSearchResultRenderer.noResults": "无结果",
   "webSearchResultRenderer.results": "条结果",
   "webSearchResultRenderer.title": "网页搜索结果",
-  "globalSearch.resultsCapped": "仅显示前 {{count}} 条结果 — 缩小查询范围以查看更多"
+  "globalSearch.resultsCapped": "仅显示前 {{count}} 条结果 — 缩小查询范围以查看更多",
+  "globalSearch.mode.smart": "智能",
+  "globalSearch.mode.smartHint": "分词 OR 匹配，按相关度排序",
+  "globalSearch.mode.phrase": "短语",
+  "globalSearch.mode.phraseHint": "精确短语匹配（分词后）",
+  "globalSearch.mode.fuzzy": "模糊",
+  "globalSearch.mode.fuzzyHint": "容忍拼写错误（噪音较多）",
+  "globalSearch.sort.relevance": "相关度",
+  "globalSearch.sort.time": "最新",
+  "globalSearch.resultsFromEs": "来自 Elasticsearch 的结果",
+  "globalSearch.relevanceScoreHint": "Elasticsearch BM25 得分（越高越相关）"
 }

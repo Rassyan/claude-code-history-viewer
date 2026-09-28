@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-28T07:56:33.688Z
- * 총 키 개수: 2013
+ * 생성 시간: 2026-09-28T08:27:04.595Z
+ * 총 키 개수: 2023
  * Namespace 수: 11
  */
 
@@ -1528,7 +1528,7 @@ export type MessageKeys =
   | 'navigator.userOnly';
 
 /**
- * renderers namespace의 번역 키 (393개)
+ * renderers namespace의 번역 키 (403개)
  * 파일: locales/{lang}/renderers.json
  */
 export type RenderersKeys =
@@ -1721,18 +1721,28 @@ export type RenderersKeys =
   | 'globalSearch.filterType.assistant'
   | 'globalSearch.filterType.user'
   | 'globalSearch.hint'
+  | 'globalSearch.mode.fuzzy'
+  | 'globalSearch.mode.fuzzyHint'
+  | 'globalSearch.mode.phrase'
+  | 'globalSearch.mode.phraseHint'
+  | 'globalSearch.mode.smart'
+  | 'globalSearch.mode.smartHint'
   | 'globalSearch.navigate'
   | 'globalSearch.navigationFailed'
   | 'globalSearch.noPreview'
   | 'globalSearch.noResults'
   | 'globalSearch.placeholder'
+  | 'globalSearch.relevanceScoreHint'
   | 'globalSearch.results'
   | 'globalSearch.resultsCapped'
+  | 'globalSearch.resultsFromEs'
   | 'globalSearch.searchFailed'
   | 'globalSearch.searching'
   | 'globalSearch.select'
   | 'globalSearch.sessionNotFound'
   | 'globalSearch.shortcutHint'
+  | 'globalSearch.sort.relevance'
+  | 'globalSearch.sort.time'
   | 'globalSearch.tips.filters'
   | 'globalSearch.tips.minChars'
   | 'globalSearch.tips.navigate'
@@ -2787,18 +2797,28 @@ export type TranslationKey =
   | 'globalSearch.filterType.assistant'
   | 'globalSearch.filterType.user'
   | 'globalSearch.hint'
+  | 'globalSearch.mode.fuzzy'
+  | 'globalSearch.mode.fuzzyHint'
+  | 'globalSearch.mode.phrase'
+  | 'globalSearch.mode.phraseHint'
+  | 'globalSearch.mode.smart'
+  | 'globalSearch.mode.smartHint'
   | 'globalSearch.navigate'
   | 'globalSearch.navigationFailed'
   | 'globalSearch.noPreview'
   | 'globalSearch.noResults'
   | 'globalSearch.placeholder'
+  | 'globalSearch.relevanceScoreHint'
   | 'globalSearch.results'
   | 'globalSearch.resultsCapped'
+  | 'globalSearch.resultsFromEs'
   | 'globalSearch.searchFailed'
   | 'globalSearch.searching'
   | 'globalSearch.select'
   | 'globalSearch.sessionNotFound'
   | 'globalSearch.shortcutHint'
+  | 'globalSearch.sort.relevance'
+  | 'globalSearch.sort.time'
   | 'globalSearch.tips.filters'
   | 'globalSearch.tips.minChars'
   | 'globalSearch.tips.navigate'

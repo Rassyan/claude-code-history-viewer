@@ -391,5 +391,15 @@
   "webSearchResultRenderer.noResults": "結果がありません",
   "webSearchResultRenderer.results": "件",
   "webSearchResultRenderer.title": "ウェブ検索結果",
-  "globalSearch.resultsCapped": "最初の{{count}}件のみ表示 — さらに見るには検索語を絞ってください"
+  "globalSearch.resultsCapped": "最初の{{count}}件のみ表示 — さらに見るには検索語を絞ってください",
+  "globalSearch.mode.smart": "スマート",
+  "globalSearch.mode.smartHint": "トークン化 OR マッチング、関連度順にランク付け",
+  "globalSearch.mode.phrase": "フレーズ",
+  "globalSearch.mode.phraseHint": "完全なフレーズ一致（トークン化後）",
+  "globalSearch.mode.fuzzy": "ファジー",
+  "globalSearch.mode.fuzzyHint": "タイポを許容（ノイズ増）",
+  "globalSearch.sort.relevance": "関連度",
+  "globalSearch.sort.time": "新着順",
+  "globalSearch.resultsFromEs": "Elasticsearch 検索結果",
+  "globalSearch.relevanceScoreHint": "Elasticsearch BM25 スコア（高いほど関連）"
 }

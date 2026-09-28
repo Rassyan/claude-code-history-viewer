@@ -231,6 +231,8 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: Some("pi".to_string()),
+            search_preview_html: None,
+            search_score: None,
         };
 
         assert_json_snapshot!("pi_message", message);

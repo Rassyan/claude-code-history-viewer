@@ -391,5 +391,15 @@
   "webSearchResultRenderer.noResults": "No results",
   "webSearchResultRenderer.results": "results",
   "webSearchResultRenderer.title": "Web Search Results",
-  "globalSearch.resultsCapped": "Showing first {{count}} results — narrow the query to see more"
+  "globalSearch.resultsCapped": "Showing first {{count}} results — narrow the query to see more",
+  "globalSearch.mode.smart": "Smart",
+  "globalSearch.mode.smartHint": "Tokenized OR matching, ranks by relevance",
+  "globalSearch.mode.phrase": "Phrase",
+  "globalSearch.mode.phraseHint": "Match exact phrase (after tokenization)",
+  "globalSearch.mode.fuzzy": "Fuzzy",
+  "globalSearch.mode.fuzzyHint": "Tolerate typos (more noise)",
+  "globalSearch.sort.relevance": "Relevance",
+  "globalSearch.sort.time": "Newest",
+  "globalSearch.resultsFromEs": "Results from Elasticsearch",
+  "globalSearch.relevanceScoreHint": "Elasticsearch BM25 score (higher = more relevant)"
 }

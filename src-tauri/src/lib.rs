@@ -477,7 +477,6 @@ async fn run_startup_es_sync(app: tauri::AppHandle) {
     }
 }
 
-
 #[cfg(target_os = "linux")]
 fn configure_linux_ime_environment() {
     // configure_linux_ime_environment runs during process startup before Tauri
