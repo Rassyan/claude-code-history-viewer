@@ -194,6 +194,10 @@ export const GlobalSearchModal = ({
         for (const group of groupedResults.values()) {
             const project = group.project;
             if (!project) continue;
+            // Cloud-only (es://) projects have no local session store; the
+            // local session loader would just error. Their results are
+            // already self-contained, so skip the title sweep for them.
+            if (project.storage_type === "elasticsearch" || project.path.startsWith("es://")) continue;
             const hit = sessionTitleCache.get(titleCacheKey(project));
             if (hit) Object.assign(cached, hit);
             else if (!pending.some((p) => p.path === project.path)) pending.push(project);
@@ -468,7 +472,9 @@ export const GlobalSearchModal = ({
                 }
 
                 // Session not found in any local project — try ES cloud fallback
+                if (token !== resolveTokenRef.current) return; // cancelled
                 const esSettings = await getEsSettings();
+                if (token !== resolveTokenRef.current) return; // cancelled
                 if (esSettings?.endpoint && result.sessionId) {
                     // For subagent paths (.../subagents/agent-xxx.jsonl), the session
                     // UUID lives in the parent directory, not the filename.

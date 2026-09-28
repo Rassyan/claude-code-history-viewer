@@ -277,8 +277,29 @@ pub async fn es_search_messages(
         if let Some(provider) = f.get("provider").and_then(Value::as_str) {
             filter_clauses.push(serde_json::json!({"term": {"provider": provider}}));
         }
-        if let Some(project) = f.get("project").and_then(Value::as_str) {
-            filter_clauses.push(serde_json::json!({"term": {"project_name": project}}));
+        // The frontend sends `projects` as an array of directory names
+        // (same shape the local `search_messages` backend consumes, see
+        // commands/session/search.rs); also accept the legacy singular
+        // `project` string so the filter is honored either way.
+        let project_filter: Vec<Value> = f
+            .get("projects")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let project_terms: Vec<String> = project_filter
+            .iter()
+            .filter_map(Value::as_str)
+            .map(String::from)
+            .chain(f.get("project").and_then(Value::as_str).map(String::from))
+            .collect();
+        match project_terms.as_slice() {
+            [] => {}
+            [single] => {
+                filter_clauses.push(serde_json::json!({"term": {"project_name": single}}));
+            }
+            many => {
+                filter_clauses.push(serde_json::json!({"terms": {"project_name": many}}));
+            }
         }
         if let Some(device) = f.get("deviceId").and_then(Value::as_str) {
             if !device.is_empty() && device != "all" {
