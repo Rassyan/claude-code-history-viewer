@@ -483,8 +483,13 @@ export const createProjectSlice: StateCreator<
         return;
       }
 
-      // Merge ES-only projects (those deleted locally but still in ES)
+      // Merge ES-only projects (those deleted locally but still in ES).
+      // Re-check the request id after the merge's ES round trip — a newer
+      // scan (or project selection) must not be clobbered by this write.
       const mergedProjects = await mergeCloudProjects(projects);
+      if (requestId !== getRequestId("scanProjects")) {
+        return;
+      }
       set({ projects: mergedProjects });
       if (projects.length === 0 && providerErrors.length > 0) {
         set({
@@ -711,6 +716,9 @@ export const createProjectSlice: StateCreator<
       if (isCloudProject) {
         // Cloud project: ALL sessions come from ES.
         sessions = await mergeCloudSessions([], project.name);
+        if (requestId !== getRequestId("selectProject")) {
+          return;
+        }
         set({
           sessions,
           sessionsTotal: sessions.length,
@@ -733,6 +741,9 @@ export const createProjectSlice: StateCreator<
         // Merge with ES cloud sessions (best-effort, non-blocking):
         // appends ES-only sessions whose local files have been cleaned up.
         const merged = await mergeCloudSessions(page.sessions, project.path);
+        if (requestId !== getRequestId("selectProject")) {
+          return;
+        }
         set({
           sessions: merged,
           sessionsTotal: page.total,
@@ -816,6 +827,19 @@ export const createProjectSlice: StateCreator<
         sessionsOffset: page.nextOffset,
         hasMoreSessions: page.hasMore,
       });
+
+      // Re-append the cloud-only sessions already merged into the list:
+      // dedupeSessionsById above drops any cloud session whose id collides
+      // with a newly-loaded local page entry, so the cloud copies must be
+      // re-added (or they silently disappear as the user pages deeper).
+      const cloudOnly = get().sessions.filter(
+        (s) => s.storage_type === "elasticsearch"
+      );
+      if (cloudOnly.length > 0) {
+        set({
+          sessions: dedupeSessionsById([...get().sessions, ...cloudOnly]),
+        });
+      }
     } catch (error) {
       if (requestId !== getRequestId("selectProject")) {
         return;

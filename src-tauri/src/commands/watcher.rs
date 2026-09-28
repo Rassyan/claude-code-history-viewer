@@ -811,9 +811,12 @@ fn trigger_es_sync_for_file(path: &Path) {
 
     // Global concurrent-sync cap: skip this event if too many syncs are
     // already in flight. The debouncer re-fires in 500ms, so the file
-    // will be retried shortly.
+    // will be retried shortly. Release the in-flight slot we just took —
+    // leaving it held would blacklist the file from live sync until the
+    // app restarts.
     let Some(permit) = SyncPermitGuard::try_acquire() else {
         log::debug!("ES sync: max concurrent tasks ({MAX_CONCURRENT_SYNC_TASKS}) reached, deferring {path_str}");
+        release_sync_slot(&path_str);
         return;
     };
 

@@ -567,8 +567,13 @@ export const createMessageSlice: StateCreator<
 
       // ES fallback: if local load fails, try loading from Elasticsearch
       const esMessages = await tryLoadFromEs(session);
+      if (
+        epoch !== sessionLoadEpoch ||
+        get().selectedSession?.file_path !== session.file_path
+      ) {
+        return;
+      }
       if (esMessages && esMessages.length > 0) {
-        if (get().selectedSession?.file_path !== session.file_path) return;
         set({
           messages: esMessages,
           pagination: {
